@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+We are trying to build an automatic irrigation system with automatic dosing of liquid fertilizers. We have 4 fertilizers in total. We are going to use a total of 6 peristaltic pumps and one solenoid valve. 4 peristaltic pumps for the fertilizers. 1 peristaltic pump for the watering itself. 1 peristaltic pump for feeding water to an auxiliary tank. 1 solenoid valve to fill our main tank. The components we have to programm is an ESP32, a couple of PCA9685 boards for controlling the peristaltic pumps. We can always procure more components if needed. We also want a web interface to control the different components. We use a capacitive liquid sensor to stop the solenoid valve. You are our expert code implementor. You are creating production code.

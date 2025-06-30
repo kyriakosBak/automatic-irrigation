@@ -1,0 +1,8 @@
+{
+  "dosing": [1, 1, 1, 1],
+  "schedule": {
+    "hour": 12,
+    "minute": 0
+  },
+  "calibration": [1, 1, 1, 1, 1, 1]
+}

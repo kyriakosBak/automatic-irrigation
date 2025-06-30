@@ -1,0 +1,4 @@
+# Ignore WiFi credentials
+/data/wifi.json
+# Ignore PlatformIO build folder
+.pio/
