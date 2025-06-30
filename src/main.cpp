@@ -3,12 +3,22 @@
 #include "modules/valve_control.h"
 #include "modules/scheduler.h"
 #include "modules/sensors.h"
+#if defined(ARDUINO_ARCH_ESP8266)
+#include <FS.h>
+#include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
+#define SPIFFS LittleFS
+#include <LittleFS.h>
+FS& filesystem = LittleFS;
+#else
 #include <WiFi.h>
-#include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
 #include <SPIFFS.h>
+fs::FS &filesystem = SPIFFS;
+#endif
+#include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include "config/config.h"
-#include <ESPmDNS.h>
 #include <time.h>
 
 // Function declarations
@@ -29,7 +39,7 @@ String wifi_password = "";
 static unsigned long fill_start_time = 0;
 
 void load_settings() {
-    File f = SPIFFS.open("/settings.json", "r");
+    File f = filesystem.open("/settings.json", "r");
     if (!f) {
         Serial.println("No settings file, using defaults");
         return;
@@ -61,7 +71,7 @@ void save_settings() {
     doc["schedule"]["minute"] = schedule_minute;
     doc["calibration"] = JsonArray();
     for (int i = 0; i < NUM_PUMPS; i++) doc["calibration"].add(pump_calibration[i]);
-    File f = SPIFFS.open("/settings.json", "w");
+    File f = filesystem.open("/settings.json", "w");
     if (!f) {
         Serial.println("Failed to open settings.json for writing");
         return;
@@ -72,7 +82,7 @@ void save_settings() {
 }
 
 bool load_wifi_credentials() {
-    File f = SPIFFS.open("/wifi.json", "r");
+    File f = filesystem.open("/wifi.json", "r");
     if (!f) return false;
     StaticJsonDocument<256> doc;
     DeserializationError err = deserializeJson(doc, f);
@@ -290,9 +300,15 @@ void setup() {
     scheduler_init();
     sensors_init();
 
+#if defined(ARDUINO_ARCH_ESP8266)
+    if (!LittleFS.begin()) {
+        Serial.println("LittleFS Mount Failed");
+    }
+#else
     if (!SPIFFS.begin(true)) {
         Serial.println("SPIFFS Mount Failed");
     }
+#endif
     load_settings();
 
     bool wifi_ok = false;
