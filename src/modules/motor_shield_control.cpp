@@ -10,11 +10,7 @@ Adafruit_MotorShield motor_shield2 = Adafruit_MotorShield(0x70); // Extra shield
 Adafruit_DCMotor *motors[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 
 void motor_shield_init() {
-#if defined(ARDUINO_ARCH_ESP8266)
-    Wire.begin(D2, D1); // Wemos D1 mini: SDA=D2, SCL=D1
-#else
     Wire.begin();
-#endif
 
     bool shield1_ok = motor_shield1.begin();
     bool shield2_ok = motor_shield2.begin();

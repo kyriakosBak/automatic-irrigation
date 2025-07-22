@@ -3,19 +3,10 @@
 #include "modules/valve_control.h"
 #include "modules/scheduler.h"
 #include "modules/sensors.h"
-#if defined(ARDUINO_ARCH_ESP8266)
-#include <FS.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#define SPIFFS LittleFS
-#include <LittleFS.h>
-FS& filesystem = LittleFS;
-#else
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include <SPIFFS.h>
-fs::FS &filesystem = SPIFFS;
-#endif
+#include <LittleFS.h>
+fs::FS &filesystem = LittleFS;
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include "config/config.h"
@@ -60,7 +51,7 @@ void load_settings() {
     if (doc["schedule"]["minute"].is<int>())
         schedule_minute = doc["schedule"]["minute"].as<int>();
     for (int i = 0; i < NUM_PUMPS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
-    Serial.println("Settings loaded from SPIFFS");
+    Serial.println("Settings loaded from LittleFS");
 }
 
 void save_settings() {
@@ -78,7 +69,7 @@ void save_settings() {
     }
     serializeJson(doc, f);
     f.close();
-    Serial.println("Settings saved to SPIFFS");
+    Serial.println("Settings saved to LittleFS");
 }
 
 bool load_wifi_credentials() {
@@ -112,7 +103,7 @@ void start_ap_mode() {
             StaticJsonDocument<128> doc;
             doc["ssid"] = ssid;
             doc["password"] = pass;
-            File f = SPIFFS.open("/wifi.json", "w");
+            File f = filesystem.open("/wifi.json", "w");
             serializeJson(doc, f);
             f.close();
             request->send(200, "text/html", "Saved. Rebooting...");
@@ -269,7 +260,7 @@ void setup_routes() {
     
     // Serve web page
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-        request->send(SPIFFS, "/index.html", "text/html");
+        request->send(filesystem, "/index.html", "text/html");
     });
 }
 
@@ -300,15 +291,9 @@ void setup() {
     scheduler_init();
     sensors_init();
 
-#if defined(ARDUINO_ARCH_ESP8266)
     if (!LittleFS.begin()) {
         Serial.println("LittleFS Mount Failed");
     }
-#else
-    if (!SPIFFS.begin(true)) {
-        Serial.println("SPIFFS Mount Failed");
-    }
-#endif
     load_settings();
 
     bool wifi_ok = false;
@@ -327,7 +312,7 @@ void setup() {
             Serial.println("\nWiFi connect failed");
         }
     } else {
-        Serial.println("No WiFi credentials found in SPIFFS");
+        Serial.println("No WiFi credentials found in LittleFS, starting AP mode");
     }
     if (!wifi_ok) {
         start_ap_mode();
