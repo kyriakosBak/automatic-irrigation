@@ -10,8 +10,8 @@ void sensors_init() {
 
 void sensors_read() {
     liquid_level = digitalRead(LIQUID_SENSOR_PIN);
-    Serial.print("Liquid sensor: ");
-    Serial.println(liquid_level ? "PRESENT" : "NOT PRESENT");
+    // Serial.print("Liquid sensor: ");
+    // Serial.println(liquid_level ? "PRESENT" : "NOT PRESENT");
 }
 
 bool sensors_get_liquid_level() {

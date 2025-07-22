@@ -294,7 +294,7 @@ void sync_ntp() {
 
 void setup() {
     Serial.begin(115200);
-    pca9685_init();
+    motor_shield_init();
     pump_control_init();
     valve_control_init();
     scheduler_init();
