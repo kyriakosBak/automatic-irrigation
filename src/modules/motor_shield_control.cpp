@@ -1,7 +1,6 @@
-#include "pca9685_control.h"
+#include "motor_shield_control.h"
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-
 
 // Motor shield instances
 Adafruit_MotorShield motor_shield1 = Adafruit_MotorShield(0x60); // Main shield

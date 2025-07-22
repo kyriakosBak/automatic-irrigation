@@ -1,4 +1,4 @@
-#include "modules/pca9685_control.h"
+#include "modules/motor_shield_control.h"
 #include "modules/pump_control.h"
 #include "modules/valve_control.h"
 #include "modules/scheduler.h"
