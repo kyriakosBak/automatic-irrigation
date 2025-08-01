@@ -10,3 +10,8 @@ This project controls an automatic irrigation and fertilizer dosing system using
 ## Features
 - Modular code for pumps, valves, and scheduling
 - Easy to extend for sensors and remote control 
+
+## Wiring
+ESP32 : motor-shield
+22 : SCL
+21 : SDA
