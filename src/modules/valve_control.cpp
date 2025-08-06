@@ -13,10 +13,6 @@ void valve_control_init() {
     valve_open = false;
 }
 
-void valve_control_run() {
-    // No periodic logic; control via fill/stop functions
-}
-
 void valve_control_fill_main_tank() {
     Serial.println("[DEBUG] valve_control_fill_main_tank: Opening valve");
     digitalWrite(VALVE_PIN, VALVE_OPEN);
