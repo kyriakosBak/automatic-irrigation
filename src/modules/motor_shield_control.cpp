@@ -4,7 +4,7 @@
 
 // Motor shield instances
 Adafruit_MotorShield motor_shield1 = Adafruit_MotorShield(0x60); // Main shield
-Adafruit_MotorShield motor_shield2 = Adafruit_MotorShield(0x70); // Extra shield
+Adafruit_MotorShield motor_shield2 = Adafruit_MotorShield(0x61); // Extra shield
 
 // Motor pointers for up to 6 motors (4 on shield1, 2 on shield2)
 Adafruit_DCMotor *motors[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};

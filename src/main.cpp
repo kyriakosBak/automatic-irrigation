@@ -5,6 +5,8 @@
 #include "modules/sensors.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
+
+
 #include <LittleFS.h>
 fs::FS &filesystem = LittleFS;
 #include <ESPAsyncWebServer.h>
@@ -332,7 +334,6 @@ void setup() {
 void loop() {
     scheduler_run();
     pump_control_run();
-    valve_control_run();
     sensors_read();
 
     switch (watering_state) {
