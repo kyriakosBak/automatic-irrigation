@@ -270,38 +270,6 @@ void setup_routes() {
         request->send(200, "text/plain", "Weekly watering schedule saved");
     });
     
-    // REST API: Get dosing (legacy - returns current day)
-    server.on("/api/dosing", HTTP_GET, [](AsyncWebServerRequest *request){
-        time_t now = time(nullptr);
-        struct tm timeinfo;
-        int day = 0;
-        if (localtime_r(&now, &timeinfo)) {
-            day = timeinfo.tm_wday;
-        }
-        String json = "[";
-        for (int i = 0; i < NUM_FERTILIZERS; i++) {
-            json += String(weekly_dosing_ml[day][i]);
-            if (i < NUM_FERTILIZERS-1) json += ",";
-        }
-        json += "]";
-        request->send(200, "application/json", json);
-    });
-    
-    // REST API: Set dosing (legacy - sets for all days)
-    server.on("/api/dosing", HTTP_POST, [](AsyncWebServerRequest *request){
-        for (int i = 0; i < NUM_FERTILIZERS; i++) {
-            if (request->hasParam(String("ml")+i, true)) {
-                float value = request->getParam(String("ml")+i, true)->value().toFloat();
-                // Set for all days of the week
-                for (int day = 0; day < 7; day++) {
-                    weekly_dosing_ml[day][i] = value;
-                }
-            }
-        }
-        save_settings();
-        request->send(200, "text/plain", "OK");
-    });
-    
     // REST API: Get schedule
     server.on("/api/schedule", HTTP_GET, [](AsyncWebServerRequest *request){
         String json = "{";
