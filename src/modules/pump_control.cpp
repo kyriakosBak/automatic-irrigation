@@ -6,7 +6,7 @@
 
 extern float weekly_dosing_ml[7][NUM_FERTILIZERS];
 extern bool weekly_watering_enabled[7];
-extern float pump_calibration[NUM_PUMPS];
+extern float pump_calibration[NUM_FERTILIZERS];
 extern int fertilizer_motor_speed;
 
 #define MAX_MOTOR_SPEED 255  // Full speed for motors
@@ -23,7 +23,7 @@ bool aux_pump_active = false;
 static unsigned long aux_pump_end_time = 0;
 
 unsigned long ml_to_runtime(int pump, float ml) {
-    float cal = (pump >= 0 && pump < NUM_PUMPS && pump_calibration[pump] > 0) ? pump_calibration[pump] : 1.0;
+    float cal = (pump >= 0 && pump < NUM_FERTILIZERS && pump_calibration[pump] > 0) ? pump_calibration[pump] : 1.0;
     return (unsigned long)(ml * 1000 / cal);
 }
 
@@ -68,7 +68,7 @@ void trigger_dosing() {
 }
 
 void pump_control_run_aux_pump(unsigned long ms) {
-    int aux_motor = AUX_PUMP_CHANNEL + 1;  // Convert channel to motor number (1-4)
+    int aux_motor = AUX_PUMP_CHANNEL;  // Motor 7 for auxiliary pump
     set_motor_speed(aux_motor, MAX_MOTOR_SPEED);
     run_motor_forward(aux_motor);
     aux_pump_active = true;
@@ -79,7 +79,7 @@ void pump_control_run_aux_pump(unsigned long ms) {
 }
 
 void pump_control_stop_aux_pump() {
-    int aux_motor = AUX_PUMP_CHANNEL + 1;  // Convert channel to motor number (1-4)
+    int aux_motor = AUX_PUMP_CHANNEL;  // Motor 7 for auxiliary pump
     stop_motor(aux_motor);
     aux_pump_active = false;
     Serial.println("[DEBUG] Aux pump: CLOSED");
@@ -104,7 +104,7 @@ void pump_control_run() {
     // Dosing sequence
     if (dosing_stage >= 0 && dosing_stage < NUM_FERTILIZERS) {
         if (millis() > dosing_end_time) {
-            int motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-4)
+            int motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-5)
             stop_motor(motor_num);
             Serial.print("[DEBUG] Pump ");
             Serial.print(dosing_stage);
@@ -112,7 +112,7 @@ void pump_control_run() {
             pump_running[dosing_stage] = false;
             dosing_stage++;
             if (dosing_stage < NUM_FERTILIZERS) {
-                motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-4)
+                motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-5)
                 set_motor_speed(motor_num, fertilizer_motor_speed);
                 run_motor_forward(motor_num);
                 pump_running[dosing_stage] = true;

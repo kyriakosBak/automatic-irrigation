@@ -24,7 +24,7 @@ bool weekly_watering_enabled[7]; // [day_of_week] - true if watering is enabled 
 int schedule_hour = 8;
 int schedule_minute = 0;
 
-float pump_calibration[NUM_PUMPS] = {1, 1, 1, 1, 1, 1}; // ml/sec for each pump
+float pump_calibration[NUM_FERTILIZERS] = {1, 1, 1, 1, 1}; // ml/sec for fertilizer pumps only
 int fertilizer_motor_speed = 50; // Default motor speed for fertilizer pumps
 
 AsyncWebServer server(80);
@@ -100,7 +100,7 @@ void load_settings() {
         schedule_hour = doc["schedule"]["hour"].as<int>();
     if (doc["schedule"]["minute"].is<int>())
         schedule_minute = doc["schedule"]["minute"].as<int>();
-    for (int i = 0; i < NUM_PUMPS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
+    for (int i = 0; i < NUM_FERTILIZERS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
     if (doc["fertilizer_motor_speed"].is<int>())
         fertilizer_motor_speed = doc["fertilizer_motor_speed"].as<int>();
     Serial.println("Settings loaded from LittleFS");
@@ -127,7 +127,7 @@ void save_settings() {
     doc["schedule"]["hour"] = schedule_hour;
     doc["schedule"]["minute"] = schedule_minute;
     doc["calibration"] = JsonArray();
-    for (int i = 0; i < NUM_PUMPS; i++) doc["calibration"].add(pump_calibration[i]);
+    for (int i = 0; i < NUM_FERTILIZERS; i++) doc["calibration"].add(pump_calibration[i]);
     doc["fertilizer_motor_speed"] = fertilizer_motor_speed;
     File f = filesystem.open("/settings.json", "w");
     if (!f) {
@@ -346,20 +346,20 @@ void setup_routes() {
         request->send(200, "text/plain", "Aux pump stopped");
     });
     
-    // REST API: Get calibration
+    // REST API: Get calibration (fertilizer pumps only)
     server.on("/api/calibration", HTTP_GET, [](AsyncWebServerRequest *request){
         String json = "[";
-        for (int i = 0; i < NUM_PUMPS; i++) {
+        for (int i = 0; i < NUM_FERTILIZERS; i++) {
             json += String(pump_calibration[i]);
-            if (i < NUM_PUMPS-1) json += ",";
+            if (i < NUM_FERTILIZERS-1) json += ",";
         }
         json += "]";
         request->send(200, "application/json", json);
     });
     
-    // REST API: Set calibration
+    // REST API: Set calibration (fertilizer pumps only)
     server.on("/api/calibration", HTTP_POST, [](AsyncWebServerRequest *request){
-        for (int i = 0; i < NUM_PUMPS; i++) {
+        for (int i = 0; i < NUM_FERTILIZERS; i++) {
             if (request->hasParam(String("cal")+i, true)) {
                 pump_calibration[i] = request->getParam(String("cal")+i, true)->value().toFloat();
             }

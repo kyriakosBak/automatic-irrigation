@@ -6,8 +6,8 @@
 Adafruit_MotorShield motor_shield1 = Adafruit_MotorShield(0x60); // Main shield
 Adafruit_MotorShield motor_shield2 = Adafruit_MotorShield(0x61); // Extra shield
 
-// Motor pointers for up to 6 motors (4 on shield1, 2 on shield2)
-Adafruit_DCMotor *motors[6] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+// Motor pointers for up to 7 motors (4 on shield1, 3 on shield2)
+Adafruit_DCMotor *motors[7] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
 
 void motor_shield_init() {
     Wire.begin();
@@ -32,8 +32,8 @@ void motor_shield_init() {
             motors[i]->run(RELEASE);
         }
     }
-    // Initialize motor pointers (motors 1-2 on shield2)
-    for (int i = 0; i < 2; i++) {
+    // Initialize motor pointers (motors 1-3 on shield2)
+    for (int i = 0; i < 3; i++) {
         motors[4 + i] = shield2_ok ? motor_shield2.getMotor(i + 1) : nullptr;
         if (motors[4 + i]) {
             motors[4 + i]->run(RELEASE);
@@ -44,7 +44,7 @@ void motor_shield_init() {
 }
 
 void set_motor_speed(int motor_number, int speed) {
-    if (motor_number < 1 || motor_number > 6) {
+    if (motor_number < 1 || motor_number > 7) {
         return; // Invalid motor number
     }
 
@@ -58,7 +58,7 @@ void set_motor_speed(int motor_number, int speed) {
 }
 
 void run_motor_forward(int motor_number) {
-    if (motor_number < 1 || motor_number > 6) {
+    if (motor_number < 1 || motor_number > 7) {
         return; // Invalid motor number
     }
 
@@ -69,7 +69,7 @@ void run_motor_forward(int motor_number) {
 }
 
 void run_motor_backward(int motor_number) {
-    if (motor_number < 1 || motor_number > 6) {
+    if (motor_number < 1 || motor_number > 7) {
         return; // Invalid motor number
     }
 
@@ -80,7 +80,7 @@ void run_motor_backward(int motor_number) {
 }
 
 void stop_motor(int motor_number) {
-    if (motor_number < 1 || motor_number > 6) {
+    if (motor_number < 1 || motor_number > 7) {
         return; // Invalid motor number
     }
 
@@ -91,7 +91,7 @@ void stop_motor(int motor_number) {
 }
 
 void stop_all_motors() {
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 7; i++) {
         if (motors[i]) {
             motors[i]->run(RELEASE);
         }
