@@ -5,8 +5,8 @@
 
 extern float dosing_ml[NUM_FERTILIZERS];
 extern float pump_calibration[NUM_PUMPS];
+extern int fertilizer_motor_speed;
 
-#define FERTILIZER_MOTOR_SPEED 50  // Full speed for motors
 #define MAX_MOTOR_SPEED 255  // Full speed for motors
 
 unsigned long pump_start_time[NUM_PUMPS] = {0};
@@ -28,7 +28,7 @@ unsigned long ml_to_runtime(int pump, float ml) {
 void trigger_dosing() {
     dosing_stage = 0;
     dosing_end_time = millis() + ml_to_runtime(0, dosing_ml[0]);
-    set_motor_speed(1, FERTILIZER_MOTOR_SPEED);  // Motor 1 for pump 0
+    set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
     run_motor_forward(1);
     pump_running[0] = true;
     Serial.print("[DEBUG] Pump 0: OPEN (dosing started, ");
@@ -82,7 +82,7 @@ void pump_control_run() {
             dosing_stage++;
             if (dosing_stage < NUM_FERTILIZERS) {
                 motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-4)
-                set_motor_speed(motor_num, FERTILIZER_MOTOR_SPEED);
+                set_motor_speed(motor_num, fertilizer_motor_speed);
                 run_motor_forward(motor_num);
                 pump_running[dosing_stage] = true;
                 Serial.print("[DEBUG] Pump ");
@@ -101,4 +101,8 @@ void pump_control_run() {
 
 bool pump_control_is_dosing() {
     return dosing_stage >= 0;
+}
+
+int get_fertilizer_motor_speed() {
+    return fertilizer_motor_speed;
 }

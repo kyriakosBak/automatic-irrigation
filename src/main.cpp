@@ -24,6 +24,7 @@ int schedule_hour = 8;
 int schedule_minute = 0;
 
 float pump_calibration[NUM_PUMPS] = {1, 1, 1, 1, 1, 1}; // ml/sec for each pump
+int fertilizer_motor_speed = 50; // Default motor speed for fertilizer pumps
 
 AsyncWebServer server(80);
 String wifi_ssid = "";
@@ -53,6 +54,8 @@ void load_settings() {
     if (doc["schedule"]["minute"].is<int>())
         schedule_minute = doc["schedule"]["minute"].as<int>();
     for (int i = 0; i < NUM_PUMPS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
+    if (doc["fertilizer_motor_speed"].is<int>())
+        fertilizer_motor_speed = doc["fertilizer_motor_speed"].as<int>();
     Serial.println("Settings loaded from LittleFS");
 }
 
@@ -64,6 +67,7 @@ void save_settings() {
     doc["schedule"]["minute"] = schedule_minute;
     doc["calibration"] = JsonArray();
     for (int i = 0; i < NUM_PUMPS; i++) doc["calibration"].add(pump_calibration[i]);
+    doc["fertilizer_motor_speed"] = fertilizer_motor_speed;
     File f = filesystem.open("/settings.json", "w");
     if (!f) {
         Serial.println("Failed to open settings.json for writing");
@@ -237,6 +241,24 @@ void setup_routes() {
         }
         save_settings();
         request->send(200, "text/plain", "Calibration saved");
+    });
+    
+    // REST API: Get fertilizer motor speed
+    server.on("/api/fertilizer_motor_speed", HTTP_GET, [](AsyncWebServerRequest *request){
+        String json = "{\"fertilizer_motor_speed\":" + String(fertilizer_motor_speed) + "}";
+        request->send(200, "application/json", json);
+    });
+    
+    // REST API: Set fertilizer motor speed
+    server.on("/api/fertilizer_motor_speed", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (request->hasParam("fertilizer_motor_speed", true)) {
+            fertilizer_motor_speed = request->getParam("fertilizer_motor_speed", true)->value().toInt();
+            // Clamp the value to a reasonable range
+            if (fertilizer_motor_speed < 1) fertilizer_motor_speed = 1;
+            if (fertilizer_motor_speed > 255) fertilizer_motor_speed = 255;
+        }
+        save_settings();
+        request->send(200, "text/plain", "Fertilizer motor speed saved");
     });
     
     // REST API: Get status
