@@ -8,4 +8,5 @@ void pump_control_stop_aux_pump();
 bool pump_control_is_dosing();
 int get_fertilizer_motor_speed();
 int get_current_day_of_week();
-float get_current_dosing_ml(int fertilizer_index); 
+float get_current_dosing_ml(int fertilizer_index);
+bool is_watering_enabled_today(); 

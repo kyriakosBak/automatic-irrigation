@@ -19,6 +19,7 @@ void setup_routes();
 
 // Dosing settings (ml per fertilizer) - now per day of week
 float weekly_dosing_ml[7][NUM_FERTILIZERS]; // [day_of_week][fertilizer_index]
+bool weekly_watering_enabled[7]; // [day_of_week] - true if watering is enabled for that day
 // Schedule: hour and minute for daily run
 int schedule_hour = 8;
 int schedule_minute = 0;
@@ -33,8 +34,9 @@ String wifi_password = "";
 static unsigned long fill_start_time = 0;
 
 void init_weekly_dosing() {
-    // Initialize with default values (10ml for each fertilizer, every day)
+    // Initialize with default values (10ml for each fertilizer, every day enabled)
     for (int day = 0; day < 7; day++) {
+        weekly_watering_enabled[day] = true; // Enable watering for all days by default
         for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
             weekly_dosing_ml[day][fert] = 10.0;
         }
@@ -84,6 +86,16 @@ void load_settings() {
         }
     }
     
+    // Load weekly watering enabled settings
+    if (doc["weekly_watering_enabled"].is<JsonArray>()) {
+        JsonArray weekly_enabled = doc["weekly_watering_enabled"];
+        for (int day = 0; day < 7 && day < weekly_enabled.size(); day++) {
+            if (weekly_enabled[day].is<bool>()) {
+                weekly_watering_enabled[day] = weekly_enabled[day].as<bool>();
+            }
+        }
+    }
+    
     if (doc["schedule"]["hour"].is<int>())
         schedule_hour = doc["schedule"]["hour"].as<int>();
     if (doc["schedule"]["minute"].is<int>())
@@ -104,6 +116,12 @@ void save_settings() {
         for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
             day_dosing.add(weekly_dosing_ml[day][fert]);
         }
+    }
+    
+    // Save weekly watering enabled settings
+    JsonArray weekly_enabled = doc.createNestedArray("weekly_watering_enabled");
+    for (int day = 0; day < 7; day++) {
+        weekly_enabled.add(weekly_watering_enabled[day]);
     }
     
     doc["schedule"]["hour"] = schedule_hour;
@@ -228,6 +246,30 @@ void setup_routes() {
         request->send(200, "text/plain", "Weekly dosing saved");
     });
     
+    // REST API: Get weekly watering enabled
+    server.on("/api/weekly_watering_enabled", HTTP_GET, [](AsyncWebServerRequest *request){
+        String json = "[";
+        for (int day = 0; day < 7; day++) {
+            json += weekly_watering_enabled[day] ? "true" : "false";
+            if (day < 6) json += ",";
+        }
+        json += "]";
+        request->send(200, "application/json", json);
+    });
+    
+    // REST API: Set weekly watering enabled
+    server.on("/api/weekly_watering_enabled", HTTP_POST, [](AsyncWebServerRequest *request){
+        for (int day = 0; day < 7; day++) {
+            String param_name = "day" + String(day) + "_enabled";
+            if (request->hasParam(param_name, true)) {
+                String value = request->getParam(param_name, true)->value();
+                weekly_watering_enabled[day] = (value == "true" || value == "1");
+            }
+        }
+        save_settings();
+        request->send(200, "text/plain", "Weekly watering schedule saved");
+    });
+    
     // REST API: Get dosing (legacy - returns current day)
     server.on("/api/dosing", HTTP_GET, [](AsyncWebServerRequest *request){
         time_t now = time(nullptr);
@@ -350,15 +392,20 @@ void setup_routes() {
         doc["tank_full"] = sensors_get_liquid_level();
         doc["filling"] = filling;
         doc["aux_pump"] = aux_pump_active;
+        
+        // Add watering enabled status for today
         time_t now = time(nullptr);
         struct tm timeinfo;
+        int current_day = 0;
         if (localtime_r(&now, &timeinfo)) {
+            current_day = timeinfo.tm_wday;
             char buf[64];
             strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %Z", &timeinfo);
             doc["time"] = buf;
         } else {
             doc["time"] = "N/A";
         }
+        doc["watering_today"] = weekly_watering_enabled[current_day];
         doc["ntp_synced"] = ntp_synced;
         String response;
         serializeJson(doc, response);

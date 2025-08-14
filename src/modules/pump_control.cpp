@@ -5,6 +5,7 @@
 #include <time.h>
 
 extern float weekly_dosing_ml[7][NUM_FERTILIZERS];
+extern bool weekly_watering_enabled[7];
 extern float pump_calibration[NUM_PUMPS];
 extern int fertilizer_motor_speed;
 
@@ -43,7 +44,18 @@ float get_current_dosing_ml(int fertilizer_index) {
     return 10.0; // Default value
 }
 
+bool is_watering_enabled_today() {
+    int day = get_current_day_of_week();
+    return weekly_watering_enabled[day];
+}
+
 void trigger_dosing() {
+    // Check if watering is enabled for today
+    if (!is_watering_enabled_today()) {
+        Serial.println("[DEBUG] Watering is disabled for today - skipping dosing");
+        return;
+    }
+    
     dosing_stage = 0;
     float current_ml = get_current_dosing_ml(0);
     dosing_end_time = millis() + ml_to_runtime(0, current_ml);
