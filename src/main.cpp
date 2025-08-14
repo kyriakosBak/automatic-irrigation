@@ -17,8 +17,8 @@ fs::FS &filesystem = LittleFS;
 // Function declarations
 void setup_routes();
 
-// Dosing settings (ml per fertilizer)
-float dosing_ml[NUM_FERTILIZERS] = {10, 10, 10, 10};
+// Dosing settings (ml per fertilizer) - now per day of week
+float weekly_dosing_ml[7][NUM_FERTILIZERS]; // [day_of_week][fertilizer_index]
 // Schedule: hour and minute for daily run
 int schedule_hour = 8;
 int schedule_minute = 0;
@@ -32,23 +32,58 @@ String wifi_password = "";
 
 static unsigned long fill_start_time = 0;
 
+void init_weekly_dosing() {
+    // Initialize with default values (10ml for each fertilizer, every day)
+    for (int day = 0; day < 7; day++) {
+        for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
+            weekly_dosing_ml[day][fert] = 10.0;
+        }
+    }
+}
+
 void load_settings() {
     File f = filesystem.open("/settings.json", "r");
     if (!f) {
         Serial.println("No settings file, using defaults");
+        init_weekly_dosing();
         return;
     }
-    StaticJsonDocument<512> doc;
+    StaticJsonDocument<1024> doc;
     DeserializationError err = deserializeJson(doc, f);
     f.close();
     if (err) {
         Serial.println("Failed to parse settings.json, using defaults");
+        init_weekly_dosing();
         return;
     }
-    for (int i = 0; i < NUM_FERTILIZERS; i++) {
-        if (doc["dosing"][i].is<float>())
-            dosing_ml[i] = doc["dosing"][i].as<float>();
+    
+    // Load weekly dosing schedule
+    if (doc["weekly_dosing"].is<JsonArray>()) {
+        JsonArray weekly = doc["weekly_dosing"];
+        for (int day = 0; day < 7 && day < weekly.size(); day++) {
+            if (weekly[day].is<JsonArray>()) {
+                JsonArray day_dosing = weekly[day];
+                for (int fert = 0; fert < NUM_FERTILIZERS && fert < day_dosing.size(); fert++) {
+                    if (day_dosing[fert].is<float>()) {
+                        weekly_dosing_ml[day][fert] = day_dosing[fert].as<float>();
+                    }
+                }
+            }
+        }
+    } else {
+        // Fallback: try to load old single dosing format
+        init_weekly_dosing();
+        for (int i = 0; i < NUM_FERTILIZERS; i++) {
+            if (doc["dosing"][i].is<float>()) {
+                float old_value = doc["dosing"][i].as<float>();
+                // Apply the old value to all days
+                for (int day = 0; day < 7; day++) {
+                    weekly_dosing_ml[day][i] = old_value;
+                }
+            }
+        }
     }
+    
     if (doc["schedule"]["hour"].is<int>())
         schedule_hour = doc["schedule"]["hour"].as<int>();
     if (doc["schedule"]["minute"].is<int>())
@@ -60,9 +95,17 @@ void load_settings() {
 }
 
 void save_settings() {
-    StaticJsonDocument<512> doc;
-    for (int i = 0; i < NUM_FERTILIZERS; i++)
-        doc["dosing"][i] = dosing_ml[i];
+    StaticJsonDocument<1024> doc;
+    
+    // Save weekly dosing schedule
+    JsonArray weekly = doc.createNestedArray("weekly_dosing");
+    for (int day = 0; day < 7; day++) {
+        JsonArray day_dosing = weekly.createNestedArray();
+        for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
+            day_dosing.add(weekly_dosing_ml[day][fert]);
+        }
+    }
+    
     doc["schedule"]["hour"] = schedule_hour;
     doc["schedule"]["minute"] = schedule_minute;
     doc["calibration"] = JsonArray();
@@ -155,22 +198,62 @@ void setup_routes() {
         request->send(200, "text/plain", "Watering sequence started");
     });
 
-    // REST API: Get dosing
+    // REST API: Get weekly dosing
+    server.on("/api/weekly_dosing", HTTP_GET, [](AsyncWebServerRequest *request){
+        String json = "[";
+        for (int day = 0; day < 7; day++) {
+            json += "[";
+            for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
+                json += String(weekly_dosing_ml[day][fert]);
+                if (fert < NUM_FERTILIZERS-1) json += ",";
+            }
+            json += "]";
+            if (day < 6) json += ",";
+        }
+        json += "]";
+        request->send(200, "application/json", json);
+    });
+    
+    // REST API: Set weekly dosing
+    server.on("/api/weekly_dosing", HTTP_POST, [](AsyncWebServerRequest *request){
+        for (int day = 0; day < 7; day++) {
+            for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
+                String param_name = "day" + String(day) + "_fert" + String(fert);
+                if (request->hasParam(param_name, true)) {
+                    weekly_dosing_ml[day][fert] = request->getParam(param_name, true)->value().toFloat();
+                }
+            }
+        }
+        save_settings();
+        request->send(200, "text/plain", "Weekly dosing saved");
+    });
+    
+    // REST API: Get dosing (legacy - returns current day)
     server.on("/api/dosing", HTTP_GET, [](AsyncWebServerRequest *request){
+        time_t now = time(nullptr);
+        struct tm timeinfo;
+        int day = 0;
+        if (localtime_r(&now, &timeinfo)) {
+            day = timeinfo.tm_wday;
+        }
         String json = "[";
         for (int i = 0; i < NUM_FERTILIZERS; i++) {
-            json += String(dosing_ml[i]);
+            json += String(weekly_dosing_ml[day][i]);
             if (i < NUM_FERTILIZERS-1) json += ",";
         }
         json += "]";
         request->send(200, "application/json", json);
     });
     
-    // REST API: Set dosing
+    // REST API: Set dosing (legacy - sets for all days)
     server.on("/api/dosing", HTTP_POST, [](AsyncWebServerRequest *request){
         for (int i = 0; i < NUM_FERTILIZERS; i++) {
             if (request->hasParam(String("ml")+i, true)) {
-                dosing_ml[i] = request->getParam(String("ml")+i, true)->value().toFloat();
+                float value = request->getParam(String("ml")+i, true)->value().toFloat();
+                // Set for all days of the week
+                for (int day = 0; day < 7; day++) {
+                    weekly_dosing_ml[day][i] = value;
+                }
             }
         }
         save_settings();
@@ -318,7 +401,8 @@ void setup() {
     if (!LittleFS.begin()) {
         Serial.println("LittleFS Mount Failed");
     }
-    load_settings();
+    init_weekly_dosing(); // Initialize with defaults first
+    load_settings();       // Then load from file if available
 
     bool wifi_ok = false;
     if (load_wifi_credentials()) {

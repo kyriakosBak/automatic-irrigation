@@ -2,8 +2,9 @@
 #include "motor_shield_control.h"
 #include <Arduino.h>
 #include "config/config.h"
+#include <time.h>
 
-extern float dosing_ml[NUM_FERTILIZERS];
+extern float weekly_dosing_ml[7][NUM_FERTILIZERS];
 extern float pump_calibration[NUM_PUMPS];
 extern int fertilizer_motor_speed;
 
@@ -25,14 +26,32 @@ unsigned long ml_to_runtime(int pump, float ml) {
     return (unsigned long)(ml * 1000 / cal);
 }
 
+int get_current_day_of_week() {
+    time_t now = time(nullptr);
+    struct tm timeinfo;
+    if (localtime_r(&now, &timeinfo)) {
+        return timeinfo.tm_wday; // 0=Sunday, 1=Monday, ..., 6=Saturday
+    }
+    return 0; // Default to Sunday if time is not available
+}
+
+float get_current_dosing_ml(int fertilizer_index) {
+    int day = get_current_day_of_week();
+    if (fertilizer_index >= 0 && fertilizer_index < NUM_FERTILIZERS) {
+        return weekly_dosing_ml[day][fertilizer_index];
+    }
+    return 10.0; // Default value
+}
+
 void trigger_dosing() {
     dosing_stage = 0;
-    dosing_end_time = millis() + ml_to_runtime(0, dosing_ml[0]);
+    float current_ml = get_current_dosing_ml(0);
+    dosing_end_time = millis() + ml_to_runtime(0, current_ml);
     set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
     run_motor_forward(1);
     pump_running[0] = true;
     Serial.print("[DEBUG] Pump 0: OPEN (dosing started, ");
-    Serial.print(dosing_ml[0]);
+    Serial.print(current_ml);
     Serial.println(" ml)");
 }
 
@@ -88,9 +107,10 @@ void pump_control_run() {
                 Serial.print("[DEBUG] Pump ");
                 Serial.print(dosing_stage);
                 Serial.print(": OPEN (dosing started, ");
-                Serial.print(dosing_ml[dosing_stage]);
+                float current_ml = get_current_dosing_ml(dosing_stage);
+                Serial.print(current_ml);
                 Serial.println(" ml)");
-                dosing_end_time = millis() + ml_to_runtime(dosing_stage, dosing_ml[dosing_stage]);
+                dosing_end_time = millis() + ml_to_runtime(dosing_stage, current_ml);
             } else {
                 dosing_stage = -1; // Done
             }
