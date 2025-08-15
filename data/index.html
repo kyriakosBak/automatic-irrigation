@@ -4,87 +4,305 @@
   <meta charset="UTF-8">
   <title>Irrigation Control</title>
   <style>
-    body { font-family: sans-serif; max-width: 400px; margin: 2em auto; }
-    label { display: block; margin-top: 1em; }
-    input[type=number] { width: 60px; }
-    button { margin-top: 1em; }
-    .section { border: 1px solid #ccc; padding: 1em; margin-bottom: 1em; border-radius: 8px; }
-    #status { background: #f8f8f8; margin-bottom: 2em; }
-    .error { color: red; }
-    table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
-    input.dosing-input { width: 50px; }
+    body { 
+      font-family: sans-serif; 
+      max-width: 1000px; 
+      margin: 1em auto; 
+      padding: 0 1em;
+      font-size: 14px;
+    }
+    
+    .container {
+      display: block;
+    }
+    
+    .container .section {
+      margin-bottom: 0.8em;
+      width: 100%;
+    }
+    
+    .full-width {
+      grid-column: 1 / -1;
+    }
+    
+    h1 { 
+      font-size: 1.5em; 
+      margin: 0.5em 0; 
+      text-align: center;
+    }
+    
+    h2 { 
+      font-size: 1.1em; 
+      margin: 0 0 0.5em 0; 
+      color: #333;
+    }
+    
+    label { 
+      display: block; 
+      margin: 0.3em 0; 
+      font-size: 0.9em;
+    }
+    
+    .inline-form {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      flex-wrap: wrap;
+    }
+    
+    .inline-form label {
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+    
+    input[type=number], input[type=text] { 
+      width: 60px; 
+      padding: 0.2em;
+      border: 1px solid #ddd;
+      border-radius: 3px;
+    }
+    
+    button { 
+      margin: 0.3em 0.3em 0.3em 0; 
+      padding: 0.4em 0.8em;
+      background: #007acc;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 0.85em;
+    }
+    
+    button:hover { background: #005999; }
+    
+    .section { 
+      border: 1px solid #ddd; 
+      padding: 0.8em; 
+      margin-bottom: 0.8em; 
+      border-radius: 6px;
+      background: #fafafa;
+    }
+    
+    #status { 
+      background: #f0f8ff; 
+      margin-bottom: 0.8em;
+      display: block;
+    }
+    
+    .status-item {
+      display: flex;
+      gap: 1em;
+      padding: 0.2em 0;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .status-item:last-child { border-bottom: none; }
+    
+    .error { 
+      color: red; 
+      font-weight: bold;
+      margin: 0.5em 0;
+    }
+    
+    table { 
+      border-collapse: collapse; 
+      margin: 0.5em 0;
+      font-size: 0.85em;
+    }
+    
+    th, td { 
+      border: 1px solid #ddd; 
+      padding: 0.4em; 
+      text-align: center; 
+    }
+    
+    th { 
+      background-color: #f5f5f5;
+      font-size: 0.8em;
+    }
+    
+    input.dosing-input { 
+      width: 40px;
+      padding: 0.1em;
+      text-align: center;
+    }
+    
+    .control-group {
+      display: flex;
+      gap: 0.5em;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    
+    #calInputs label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      min-width: 200px;
+      margin: 0.3em 0;
+    }
+    
+    /* Mobile responsiveness */
+    @media (max-width: 600px) {
+      .container {
+        display: block !important;
+      }
+      
+      .container .section {
+        margin-bottom: 0.8em;
+        width: 100% !important;
+      }
+      
+      .inline-form {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5em;
+      }
+      
+      .control-group {
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+      }
+      
+      .control-group button {
+        width: 100%;
+        margin: 0.2em 0;
+      }
+      
+      body {
+        padding: 0 0.5em;
+        margin: 0.5em auto;
+        font-size: 13px;
+        max-width: 100% !important;
+      }
+      
+      h1 {
+        font-size: 1.3em;
+      }
+      
+      h2 {
+        font-size: 1em;
+      }
+      
+      th, td {
+        padding: 0.2em;
+        font-size: 0.75em;
+      }
+      
+      input.dosing-input {
+        width: 35px;
+      }
+      
+      input[type=number], input[type=text] {
+        width: 80px;
+      }
+      
+      button {
+        padding: 0.6em 1em;
+        font-size: 0.9em;
+      }
+    }
   </style>
 </head>
 <body>
-  <h2>Status</h2>
-  <div id="status" class="section">
-    <div>Tank Full: <span id="tankFull">?</span></div>
-    <div>Filling: <span id="filling">?</span></div>
-    <div>Aux Pump: <span id="auxPump">?</span></div>
-    <div>Watering Today: <span id="wateringToday">?</span></div>
-    <div>NTP Synced: <span id="ntp">?</span></div>
-    <div>Time: <span id="time">?</span></div>
-  </div>
+  <h1>Irrigation Control System</h1>
+  
   <div id="error" class="error"></div>
-  <h2>Weekly Dosing Schedule</h2>
-  <div class="section">
+  
+  <div class="section full-width">
+    <h2>System Status</h2>
+    <div id="status">
+      <div class="status-item">
+        <span>Tank Full:</span>
+        <span id="tankFull">?</span>
+      </div>
+      <div class="status-item">
+        <span>Filling:</span>
+        <span id="filling">?</span>
+      </div>
+      <div class="status-item">
+        <span>Aux Pump:</span>
+        <span id="auxPump">?</span>
+      </div>
+      <div class="status-item">
+        <span>Watering Today:</span>
+        <span id="wateringToday">?</span>
+      </div>
+      <div class="status-item">
+        <span>NTP Synced:</span>
+        <span id="ntp">?</span>
+      </div>
+      <div class="status-item">
+        <span>Time:</span>
+        <span id="time">?</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="section">
+      <h2>Tank Controls</h2>
+      <div class="control-group">
+        <button id="fillMainBtn">Fill Main</button>
+        <button id="stopMainBtn">Stop Fill</button>
+      </div>
+      <form id="auxPumpForm" class="inline-form">
+        <label>Aux Pump (ms): <input type="number" id="auxMs" value="5000"></label>
+        <button type="submit">Run</button>
+        <button type="button" id="stopAuxBtn">Stop</button>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>Fertilizer Settings</h2>
+      <form id="fertSpeedForm" class="inline-form">
+        <label>Motor Speed: <input type="number" id="fertSpeed" min="1" max="255" value="50"></label>
+        <button type="submit">Save</button>
+      </form>
+    </div>
+
+    <div class="section">
+      <h2>Schedule & Watering</h2>
+      <form id="scheduleForm" class="inline-form">
+        <label>Hour: <input type="number" id="hour" min="0" max="23"></label>
+        <label>Minute: <input type="number" id="minute" min="0" max="59"></label>
+        <button type="submit">Save</button>
+      </form>
+      <div class="control-group">
+        <button id="startWateringBtn">Start Watering</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Pump Calibration</h2>
+      <form id="calForm">
+        <div id="calInputs"></div>
+        <button type="submit">Save Calibration</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="section full-width">
+    <h2>Weekly Dosing Schedule</h2>
     <form id="weeklyDosingForm">
       <table id="weeklyDosingTable">
         <thead>
           <tr>
             <th>Day</th>
-            <th>Enable Watering</th>
-            <th>Fertilizer 1 (ml)</th>
-            <th>Fertilizer 2 (ml)</th>
-            <th>Fertilizer 3 (ml)</th>
-            <th>Fertilizer 4 (ml)</th>
-            <th>Fertilizer 5 (ml)</th>
+            <th>Water</th>
+            <th>Bio-Grow (ml)</th>
+            <th>Bio-Bloom (ml)</th>
+            <th>Top-Max (ml)</th>
+            <th>CalMag (ml)</th>
+            <th>PhDown (ml)</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
-      <button type="submit">Save Weekly Dosing</button>
-    </form>
-  </div>
-  <div class="section">
-    <h2>Schedule</h2>
-    <form id="scheduleForm">
-      <label>Hour: <input type="number" id="hour" min="0" max="23"></label>
-      <label>Minute: <input type="number" id="minute" min="0" max="59"></label>
-      <button type="submit">Save Schedule</button>
-    </form>
-  </div>
-  <div class="section">
-    <h2>Automatic Watering Sequence</h2>
-    <button id="startWateringBtn">Start Watering Sequence</button>
-  </div>
-  <div class="section">
-    <h2>Main Tank Control</h2>
-    <button id="fillMainBtn">Start Fill</button>
-    <button id="stopMainBtn">Stop Fill</button>
-  </div>
-  <div class="section">
-    <h2>Auxiliary Tank Pump</h2>
-    <form id="auxPumpForm">
-      <label>Run for (ms): <input type="number" id="auxMs" value="5000"></label>
-      <button type="submit">Run Aux Pump</button>
-    </form>
-    <button id="stopAuxBtn">Stop Aux Pump</button>
-  </div>
-  <div class="section">
-    <h2>Fertilizer Motor Speed</h2>
-    <form id="fertSpeedForm">
-      <label>Motor Speed (1-255): <input type="number" id="fertSpeed" min="1" max="255" value="50"></label>
-      <button type="submit">Save Motor Speed</button>
-    </form>
-  </div>
-  <div class="section">
-    <h2>Fertilizer Pump Calibration</h2>
-    <form id="calForm">
-      <div id="calInputs"></div>
-      <button type="submit">Save Calibration</button>
+      <button type="submit">Save Weekly Schedule</button>
     </form>
   </div>
   <script>
@@ -213,15 +431,16 @@
     document.getElementById('fertSpeedForm').onsubmit = function(e){
       e.preventDefault();
       const data = new URLSearchParams();
-      data.append('fertilizer_motor_speed', document.getElementById('fertSpeed').value);
+      data.append('Fertilizer Pump 1fertilizer_motor_speed', document.getElementById('fertSpeed').value);
       fetchAuth('/api/fertilizer_motor_speed', {method:'POST', body:data}).catch(()=>{});
     };
     // Load calibration
     fetchAuth('/api/calibration').then(r=>r.json()).then(cal=>{
       const ci = document.getElementById('calInputs');
+      const fertilizerNames = ['Bio-Grow', 'Bio-Bloom', 'Top-Max', 'CalMag', 'PhDown'];
       ci.innerHTML = '';
       cal.forEach((c, i) => {
-        ci.innerHTML += `<label>Fertilizer Pump ${i+1}: <input type="number" step="0.01" id="cal${i}" value="${c}"> ml/sec</label>`;
+        ci.innerHTML += `<label>${fertilizerNames[i]}: <input type="number" step="0.01" id="cal${i}" value="${c}"> ml/sec</label>`;
       });
     });
     // Save calibration
