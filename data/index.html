@@ -305,6 +305,59 @@
       <button type="submit">Save Weekly Schedule</button>
     </form>
   </div>
+
+  <div class="section full-width">
+    <h2>Debug - Manual Pump Control</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Pump</th>
+          <th>On</th>
+          <th>Off</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Bio-Grow</td>
+          <td><button type="button" id="debugBioGrowOn">On</button></td>
+          <td><button type="button" id="debugBioGrowOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>Bio-Bloom</td>
+          <td><button type="button" id="debugBioBloomOn">On</button></td>
+          <td><button type="button" id="debugBioBloomOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>Top-Max</td>
+          <td><button type="button" id="debugTopMaxOn">On</button></td>
+          <td><button type="button" id="debugTopMaxOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>CalMag</td>
+          <td><button type="button" id="debugCalMagOn">On</button></td>
+          <td><button type="button" id="debugCalMagOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>PhDown</td>
+          <td><button type="button" id="debugPhDownOn">On</button></td>
+          <td><button type="button" id="debugPhDownOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>Main Tank</td>
+          <td><button type="button" id="debugMainTankOn">On</button></td>
+          <td><button type="button" id="debugMainTankOff">Off</button></td>
+        </tr>
+        <tr>
+          <td>Aux Pump</td>
+          <td><button type="button" id="debugAuxPumpOn">On</button></td>
+          <td><button type="button" id="debugAuxPumpOff">Off</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="control-group">
+      <button type="button" id="stopAllPumps">Stop All Pumps</button>
+    </div>
+  </div>
   <script>
     function fetchAuth(url, opts={}) {
       opts.headers = opts.headers || {};
@@ -449,6 +502,58 @@
       const data = new URLSearchParams();
       for(let i=0;i<5;i++) data.append('cal'+i, document.getElementById('cal'+i).value);
       fetchAuth('/api/calibration', {method:'POST', body: data}).catch(()=>{});
+    };
+    
+    // Debug pump controls
+    document.getElementById('debugBioGrowOn').onclick = function(){
+      const speed = document.getElementById('fertSpeed').value;
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'on', speed: speed})}).catch(()=>{});
+    };
+    document.getElementById('debugBioGrowOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugBioBloomOn').onclick = function(){
+      const speed = document.getElementById('fertSpeed').value;
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'on', speed: speed})}).catch(()=>{});
+    };
+    document.getElementById('debugBioBloomOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugTopMaxOn').onclick = function(){
+      const speed = document.getElementById('fertSpeed').value;
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'on', speed: speed})}).catch(()=>{});
+    };
+    document.getElementById('debugTopMaxOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugCalMagOn').onclick = function(){
+      const speed = document.getElementById('fertSpeed').value;
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'on', speed: speed})}).catch(()=>{});
+    };
+    document.getElementById('debugCalMagOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugPhDownOn').onclick = function(){
+      const speed = document.getElementById('fertSpeed').value;
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'on', speed: speed})}).catch(()=>{});
+    };
+    document.getElementById('debugPhDownOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugMainTankOn').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'on'})}).catch(()=>{});
+    };
+    document.getElementById('debugMainTankOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('debugAuxPumpOn').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'on'})}).catch(()=>{});
+    };
+    document.getElementById('debugAuxPumpOff').onclick = function(){
+      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'off'})}).catch(()=>{});
+    };
+    document.getElementById('stopAllPumps').onclick = function(){
+      fetchAuth('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
     };
   </script>
 </body>
