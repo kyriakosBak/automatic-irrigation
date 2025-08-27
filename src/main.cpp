@@ -186,6 +186,7 @@ void start_ap_mode() {
 // Status variables
 static bool filling = false;
 extern bool humidifier_pump_active;
+extern bool watering_pump_active;
 static bool ntp_synced = false;
 
 // Watering sequence state machine
@@ -194,7 +195,8 @@ enum WateringState {
     DOSING,
     WAIT_FOR_DOSING,
     FILLING,
-    WAIT_FOR_FILL
+    FILLED,
+    WATERING
 };
 static WateringState watering_state = IDLE;
 
@@ -314,6 +316,20 @@ void setup_routes() {
         request->send(200, "text/plain", "Humidifier pump stopped");
     });
     
+    // REST API: Run watering pump
+    server.on("/api/run_watering_pump", HTTP_POST, [](AsyncWebServerRequest *request){
+        unsigned long ms = MAX_WATERING_TIME_MS;
+        if (request->hasParam("ms", true)) ms = request->getParam("ms", true)->value().toInt();
+        pump_control_run_watering_pump(ms);
+        request->send(200, "text/plain", "Watering pump running");
+    });
+    
+    // REST API: Stop watering pump
+    server.on("/api/stop_watering_pump", HTTP_POST, [](AsyncWebServerRequest *request){
+        pump_control_stop_watering_pump();
+        request->send(200, "text/plain", "Watering pump stopped");
+    });
+    
     // REST API: Get calibration (fertilizer pumps only)
     server.on("/api/calibration", HTTP_GET, [](AsyncWebServerRequest *request){
         String json = "[";
@@ -376,14 +392,14 @@ void setup_routes() {
                 set_motor_speed(motor_num, speed);
                 run_motor_forward(motor_num);
                 request->send(200, "text/plain", "Fertilizer pump " + String(pump) + " turned on");
-            } else if (pump == 6) {
-                // Main tank pump
-                valve_control_fill_main_tank();
+            } else if (pump == 5) {
+                // Watering pump
+                pump_control_run_watering_pump(60000);
                 filling = true;
-                request->send(200, "text/plain", "Main tank pump turned on");
-            } else if (pump == 7) {
+                request->send(200, "text/plain", "Watering pump turned on");
+            } else if (pump == 6) {
                 // Humidifier pump
-                pump_control_run_humidifier_pump(60000); // Run for 1 minute max
+                pump_control_run_humidifier_pump(60000);
                 request->send(200, "text/plain", "Humidifier pump turned on");
             } else {
                 request->send(400, "text/plain", "Invalid pump number");
@@ -394,12 +410,12 @@ void setup_routes() {
                 int motor_num = pump + 1;
                 stop_motor(motor_num);
                 request->send(200, "text/plain", "Fertilizer pump " + String(pump) + " turned off");
-            } else if (pump == 6) {
-                // Main tank pump
-                valve_control_stop_main_tank();
+            } else if (pump == 5) {
+                // Watering pump
+                pump_control_stop_watering_pump();
                 filling = false;
-                request->send(200, "text/plain", "Main tank pump turned off");
-            } else if (pump == 7) {
+                request->send(200, "text/plain", "Watering pump turned off");
+            } else if (pump == 6) {
                 // Humidifier pump
                 pump_control_stop_humidifier_pump();
                 request->send(200, "text/plain", "Humidifier pump turned off");
@@ -422,6 +438,8 @@ void setup_routes() {
         filling = false;
         // Stop humidifier pump
         pump_control_stop_humidifier_pump();
+        // Stop watering pump
+        pump_control_stop_watering_pump();
         
         request->send(200, "text/plain", "All pumps stopped");
     });
@@ -432,6 +450,7 @@ void setup_routes() {
         doc["tank_full"] = sensors_get_liquid_level();
         doc["filling"] = filling;
         doc["humidifier_pump"] = humidifier_pump_active;
+        doc["watering_pump"] = watering_pump_active;
         
         // Add watering enabled status for today
         time_t now = time(nullptr);
@@ -552,19 +571,29 @@ void loop() {
                 if (sensors_get_liquid_level()) {
                     valve_control_stop_main_tank();
                     filling = false;
-                    watering_state = WAIT_FOR_FILL;
+                    watering_state = FILLED;
                 } else if (millis() - fill_start_time > MAIN_TANK_FILL_TIMEOUT_MS) {
                     valve_control_stop_main_tank();
                     filling = false;
-                    watering_state = WAIT_FOR_FILL;
+                    watering_state = FILLED;
                     Serial.println("[SAFETY] Main tank fill timeout reached, valve closed.");
                 }
             } else {
-                watering_state = WAIT_FOR_FILL;
+                watering_state = FILLED;
             }
             break;
-        case WAIT_FOR_FILL:
-            watering_state = IDLE;
+        case FILLED:
+            // Start watering pump for maximum time after tank is filled
+            pump_control_run_watering_pump(MAX_WATERING_TIME_MS);
+            watering_state = WATERING;
+            Serial.println("[DEBUG] Tank filled - starting watering pump for maximum time");
+            break;
+        case WATERING:
+            // Wait for watering to complete (pump will stop automatically)
+            if (!watering_pump_active) {
+                watering_state = IDLE;
+                Serial.println("[DEBUG] Watering complete - sequence finished");
+            }
             break;
     }
 
