@@ -18,9 +18,9 @@ bool pump_running[NUM_PUMPS] = {false};
 static int dosing_stage = -1;
 static unsigned long dosing_end_time = 0;
 
-// Auxiliary pump state
-bool aux_pump_active = false;
-static unsigned long aux_pump_end_time = 0;
+// Humidifier pump state
+bool humidifier_pump_active = false;
+static unsigned long humidifier_pump_end_time = 0;
 
 unsigned long ml_to_runtime(int pump, float ml) {
     float cal = (pump >= 0 && pump < NUM_FERTILIZERS && pump_calibration[pump] > 0) ? pump_calibration[pump] : 1.0;
@@ -67,22 +67,22 @@ void trigger_dosing() {
     Serial.println(" ml)");
 }
 
-void pump_control_run_aux_pump(unsigned long ms) {
-    int aux_motor = AUX_PUMP_CHANNEL;  // Motor 7 for auxiliary pump
-    set_motor_speed(aux_motor, MAX_MOTOR_SPEED);
-    run_motor_forward(aux_motor);
-    aux_pump_active = true;
-    aux_pump_end_time = millis() + ms;
-    Serial.print("[DEBUG] Aux pump: OPEN (run for ");
+void pump_control_run_humidifier_pump(unsigned long ms) {
+    int humidifier_motor = HUMIDIFIER_PUMP_CHANNEL;  // Motor 7 for humidifier pump
+    set_motor_speed(humidifier_motor, MAX_MOTOR_SPEED);
+    run_motor_forward(humidifier_motor);
+    humidifier_pump_active = true;
+    humidifier_pump_end_time = millis() + ms;
+    Serial.print("[DEBUG] Humidifier pump: OPEN (run for ");
     Serial.print(ms);
     Serial.println(" ms)");
 }
 
-void pump_control_stop_aux_pump() {
-    int aux_motor = AUX_PUMP_CHANNEL;  // Motor 7 for auxiliary pump
-    stop_motor(aux_motor);
-    aux_pump_active = false;
-    Serial.println("[DEBUG] Aux pump: CLOSED");
+void pump_control_stop_humidifier_pump() {
+    int humidifier_motor = HUMIDIFIER_PUMP_CHANNEL;  // Motor 7 for humidifier pump
+    stop_motor(humidifier_motor);
+    humidifier_pump_active = false;
+    Serial.println("[DEBUG] Humidifier pump: CLOSED");
 }
 
 void pump_control_init() {
@@ -93,13 +93,13 @@ void pump_control_init() {
         pump_start_time[i] = 0;
     }
     dosing_stage = -1;
-    aux_pump_active = false;
+    humidifier_pump_active = false;
 }
 
 void pump_control_run() {
-    // Auxiliary pump logic
-    if (aux_pump_active && millis() > aux_pump_end_time) {
-        pump_control_stop_aux_pump();
+    // Humidifier pump logic
+    if (humidifier_pump_active && millis() > humidifier_pump_end_time) {
+        pump_control_stop_humidifier_pump();
     }
     // Dosing sequence
     if (dosing_stage >= 0 && dosing_stage < NUM_FERTILIZERS) {

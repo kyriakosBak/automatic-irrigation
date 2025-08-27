@@ -427,8 +427,8 @@
         <div class="status-value" id="filling">?</div>
       </div>
       <div class="status-item">
-        <div class="status-label">Aux Pump</div>
-        <div class="status-value" id="auxPump">?</div>
+        <div class="status-label">Humidifier Pump</div>
+        <div class="status-value" id="humidifierPump">?</div>
       </div>
       <div class="status-item">
         <div class="status-label">Watering Today</div>
@@ -454,13 +454,13 @@
         <button id="fillMainBtn" class="success">Fill Main</button>
         <button id="stopMainBtn" class="danger">Stop Fill</button>
       </div>
-      <form id="auxPumpForm" class="inline-form">
+      <form id="humidifierPumpForm" class="inline-form">
         <div class="form-group">
           <label>Duration (ms)</label>
-          <input type="number" id="auxMs" value="5000">
+          <input type="number" id="humidifierMs" value="5000">
         </div>
-        <button type="submit">Run Aux</button>
-        <button type="button" id="stopAuxBtn" class="secondary">Stop</button>
+        <button type="submit">Run Humidifier</button>
+        <button type="button" id="stopHumidifierBtn" class="secondary">Stop</button>
       </form>
 
       <h3>Fertilizer Settings</h3>
@@ -548,9 +548,9 @@
       <button type="button" id="debugMainTankOn" class="success">On</button>
       <button type="button" id="debugMainTankOff" class="danger">Off</button>
       
-      <div class="pump-name">Aux Pump</div>
-      <button type="button" id="debugAuxPumpOn" class="success">On</button>
-      <button type="button" id="debugAuxPumpOff" class="danger">Off</button>
+      <div class="pump-name">Humidifier Pump</div>
+      <button type="button" id="debugHumidifierPumpOn" class="success">On</button>
+      <button type="button" id="debugHumidifierPumpOff" class="danger">Off</button>
     </div>
     <div class="button-grid" style="margin-top: 1rem;">
       <button type="button" id="stopAllPumps" class="danger">Stop All Pumps</button>
@@ -572,7 +572,7 @@
       apiCall('/api/status').then(r=>r.json()).then(st=>{
         document.getElementById('tankFull').textContent = st.tank_full ? 'Yes' : 'No';
         document.getElementById('filling').textContent = st.filling ? 'Yes' : 'No';
-        document.getElementById('auxPump').textContent = st.aux_pump ? 'Yes' : 'No';
+        document.getElementById('humidifierPump').textContent = st.humidifier_pump ? 'Yes' : 'No';
         document.getElementById('wateringToday').textContent = st.watering_today ? 'Yes' : 'No';
         document.getElementById('ntp').textContent = st.ntp_synced ? 'Yes' : 'No';
         document.getElementById('time').textContent = st.time;
@@ -662,16 +662,16 @@
       apiCall('/api/start_watering', {method:'POST'})
         .catch(()=>{});
     };
-    // Aux pump run/stop
-    document.getElementById('auxPumpForm').onsubmit = function(e){
+    // Humidifier pump run/stop
+    document.getElementById('humidifierPumpForm').onsubmit = function(e){
       e.preventDefault();
-      const ms = document.getElementById('auxMs').value;
+      const ms = document.getElementById('humidifierMs').value;
       const data = new URLSearchParams();
       data.append('ms', ms);
-      apiCall('/api/run_aux_pump', {method:'POST', body:data}).catch(()=>{});
+      apiCall('/api/run_humidifier_pump', {method:'POST', body:data}).catch(()=>{});
     };
-    document.getElementById('stopAuxBtn').onclick = function(){
-      apiCall('/api/stop_aux_pump', {method:'POST'}).catch(()=>{});
+    document.getElementById('stopHumidifierBtn').onclick = function(){
+      apiCall('/api/stop_humidifier_pump', {method:'POST'}).catch(()=>{});
     };
     // Load fertilizer motor speed
     fetch('/api/fertilizer_motor_speed').then(r=>r.json()).then(data=>{
@@ -751,10 +751,10 @@
     document.getElementById('debugMainTankOff').onclick = function(){
       apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '5', action: 'off'})}).catch(()=>{});
     };
-    document.getElementById('debugAuxPumpOn').onclick = function(){
+    document.getElementById('debugHumidifierPumpOn').onclick = function(){
       apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'on'})}).catch(()=>{});
     };
-    document.getElementById('debugAuxPumpOff').onclick = function(){
+    document.getElementById('debugHumidifierPumpOff').onclick = function(){
       apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('stopAllPumps').onclick = function(){

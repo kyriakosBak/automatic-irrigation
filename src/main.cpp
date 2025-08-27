@@ -185,7 +185,7 @@ void start_ap_mode() {
 
 // Status variables
 static bool filling = false;
-extern bool aux_pump_active;
+extern bool humidifier_pump_active;
 static bool ntp_synced = false;
 
 // Watering sequence state machine
@@ -300,18 +300,18 @@ void setup_routes() {
         request->send(200, "text/plain", "Stopped main tank");
     });
     
-    // REST API: Run auxiliary pump
-    server.on("/api/run_aux_pump", HTTP_POST, [](AsyncWebServerRequest *request){
+    // REST API: Run humidifier pump
+    server.on("/api/run_humidifier_pump", HTTP_POST, [](AsyncWebServerRequest *request){
         unsigned long ms = 5000;
         if (request->hasParam("ms", true)) ms = request->getParam("ms", true)->value().toInt();
-        pump_control_run_aux_pump(ms);
-        request->send(200, "text/plain", "Aux pump running");
+        pump_control_run_humidifier_pump(ms);
+        request->send(200, "text/plain", "Humidifier pump running");
     });
     
-    // REST API: Stop auxiliary pump
-    server.on("/api/stop_aux_pump", HTTP_POST, [](AsyncWebServerRequest *request){
-        pump_control_stop_aux_pump();
-        request->send(200, "text/plain", "Aux pump stopped");
+    // REST API: Stop humidifier pump
+    server.on("/api/stop_humidifier_pump", HTTP_POST, [](AsyncWebServerRequest *request){
+        pump_control_stop_humidifier_pump();
+        request->send(200, "text/plain", "Humidifier pump stopped");
     });
     
     // REST API: Get calibration (fertilizer pumps only)
@@ -382,9 +382,9 @@ void setup_routes() {
                 filling = true;
                 request->send(200, "text/plain", "Main tank pump turned on");
             } else if (pump == 7) {
-                // Aux pump
-                pump_control_run_aux_pump(60000); // Run for 1 minute max
-                request->send(200, "text/plain", "Aux pump turned on");
+                // Humidifier pump
+                pump_control_run_humidifier_pump(60000); // Run for 1 minute max
+                request->send(200, "text/plain", "Humidifier pump turned on");
             } else {
                 request->send(400, "text/plain", "Invalid pump number");
             }
@@ -400,9 +400,9 @@ void setup_routes() {
                 filling = false;
                 request->send(200, "text/plain", "Main tank pump turned off");
             } else if (pump == 7) {
-                // Aux pump
-                pump_control_stop_aux_pump();
-                request->send(200, "text/plain", "Aux pump turned off");
+                // Humidifier pump
+                pump_control_stop_humidifier_pump();
+                request->send(200, "text/plain", "Humidifier pump turned off");
             } else {
                 request->send(400, "text/plain", "Invalid pump number");
             }
@@ -420,8 +420,8 @@ void setup_routes() {
         // Stop main tank
         valve_control_stop_main_tank();
         filling = false;
-        // Stop aux pump
-        pump_control_stop_aux_pump();
+        // Stop humidifier pump
+        pump_control_stop_humidifier_pump();
         
         request->send(200, "text/plain", "All pumps stopped");
     });
@@ -431,7 +431,7 @@ void setup_routes() {
         StaticJsonDocument<256> doc;
         doc["tank_full"] = sensors_get_liquid_level();
         doc["filling"] = filling;
-        doc["aux_pump"] = aux_pump_active;
+        doc["humidifier_pump"] = humidifier_pump_active;
         
         // Add watering enabled status for today
         time_t now = time(nullptr);
