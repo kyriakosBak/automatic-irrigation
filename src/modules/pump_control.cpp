@@ -22,6 +22,10 @@ static unsigned long dosing_end_time = 0;
 bool humidifier_pump_active = false;
 static unsigned long humidifier_pump_end_time = 0;
 
+// Watering pump state
+bool watering_pump_active = false;
+static unsigned long watering_pump_end_time = 0;
+
 unsigned long ml_to_runtime(int pump, float ml) {
     float cal = (pump >= 0 && pump < NUM_FERTILIZERS && pump_calibration[pump] > 0) ? pump_calibration[pump] : 1.0;
     return (unsigned long)(ml * 1000 / cal);
@@ -85,6 +89,24 @@ void pump_control_stop_humidifier_pump() {
     Serial.println("[DEBUG] Humidifier pump: CLOSED");
 }
 
+void pump_control_run_watering_pump(unsigned long ms) {
+    int watering_motor = WATERING_PUMP_CHANNEL;  // Motor 6 for watering pump
+    set_motor_speed(watering_motor, MAX_MOTOR_SPEED);
+    run_motor_forward(watering_motor);
+    watering_pump_active = true;
+    watering_pump_end_time = millis() + ms;
+    Serial.print("[DEBUG] Watering pump: OPEN (run for ");
+    Serial.print(ms);
+    Serial.println(" ms)");
+}
+
+void pump_control_stop_watering_pump() {
+    int watering_motor = WATERING_PUMP_CHANNEL;  // Motor 6 for watering pump
+    stop_motor(watering_motor);
+    watering_pump_active = false;
+    Serial.println("[DEBUG] Watering pump: CLOSED");
+}
+
 void pump_control_init() {
     // Stop all motors initially
     stop_all_motors();
@@ -94,6 +116,7 @@ void pump_control_init() {
     }
     dosing_stage = -1;
     humidifier_pump_active = false;
+    watering_pump_active = false;
 }
 
 void pump_control_run() {
@@ -101,6 +124,12 @@ void pump_control_run() {
     if (humidifier_pump_active && millis() > humidifier_pump_end_time) {
         pump_control_stop_humidifier_pump();
     }
+    
+    // Watering pump logic
+    if (watering_pump_active && millis() > watering_pump_end_time) {
+        pump_control_stop_watering_pump();
+    }
+    
     // Dosing sequence
     if (dosing_stage >= 0 && dosing_stage < NUM_FERTILIZERS) {
         if (millis() > dosing_end_time) {

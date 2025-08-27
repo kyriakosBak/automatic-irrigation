@@ -5,6 +5,8 @@ void trigger_dosing();
 unsigned long ml_to_runtime(int pump, float ml);
 void pump_control_run_humidifier_pump(unsigned long ms);
 void pump_control_stop_humidifier_pump();
+void pump_control_run_watering_pump(unsigned long ms);
+void pump_control_stop_watering_pump();
 bool pump_control_is_dosing();
 int get_fertilizer_motor_speed();
 int get_current_day_of_week();
