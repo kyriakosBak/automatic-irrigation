@@ -354,6 +354,78 @@ void setup_routes() {
         request->send(200, "text/plain", "Fertilizer motor speed saved");
     });
     
+    // REST API: Debug pump control
+    server.on("/api/debug_pump", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (!request->hasParam("pump", true) || !request->hasParam("action", true)) {
+            request->send(400, "text/plain", "Missing pump or action parameter");
+            return;
+        }
+        
+        int pump = request->getParam("pump", true)->value().toInt();
+        String action = request->getParam("action", true)->value();
+        
+        if (action == "on") {
+            int speed = 50; // Default speed
+            if (request->hasParam("speed", true)) {
+                speed = request->getParam("speed", true)->value().toInt();
+            }
+            
+            if (pump >= 0 && pump <= 4) {
+                // Fertilizer pumps (0-4 map to motors 1-5)
+                int motor_num = pump + 1;
+                set_motor_speed(motor_num, speed);
+                run_motor_forward(motor_num);
+                request->send(200, "text/plain", "Fertilizer pump " + String(pump) + " turned on");
+            } else if (pump == 6) {
+                // Main tank pump
+                valve_control_fill_main_tank();
+                filling = true;
+                request->send(200, "text/plain", "Main tank pump turned on");
+            } else if (pump == 7) {
+                // Aux pump
+                pump_control_run_aux_pump(60000); // Run for 1 minute max
+                request->send(200, "text/plain", "Aux pump turned on");
+            } else {
+                request->send(400, "text/plain", "Invalid pump number");
+            }
+        } else if (action == "off") {
+            if (pump >= 0 && pump <= 4) {
+                // Fertilizer pumps (0-4 map to motors 1-5)
+                int motor_num = pump + 1;
+                stop_motor(motor_num);
+                request->send(200, "text/plain", "Fertilizer pump " + String(pump) + " turned off");
+            } else if (pump == 6) {
+                // Main tank pump
+                valve_control_stop_main_tank();
+                filling = false;
+                request->send(200, "text/plain", "Main tank pump turned off");
+            } else if (pump == 7) {
+                // Aux pump
+                pump_control_stop_aux_pump();
+                request->send(200, "text/plain", "Aux pump turned off");
+            } else {
+                request->send(400, "text/plain", "Invalid pump number");
+            }
+        } else {
+            request->send(400, "text/plain", "Invalid action. Use 'on' or 'off'");
+        }
+    });
+    
+    // REST API: Stop all pumps
+    server.on("/api/stop_all_pumps", HTTP_POST, [](AsyncWebServerRequest *request){
+        // Stop all fertilizer pumps (motors 1-5)
+        for (int i = 1; i <= 5; i++) {
+            stop_motor(i);
+        }
+        // Stop main tank
+        valve_control_stop_main_tank();
+        filling = false;
+        // Stop aux pump
+        pump_control_stop_aux_pump();
+        
+        request->send(200, "text/plain", "All pumps stopped");
+    });
+    
     // REST API: Get status
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
         StaticJsonDocument<256> doc;

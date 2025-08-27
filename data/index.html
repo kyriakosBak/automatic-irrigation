@@ -2,23 +2,43 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Irrigation Control</title>
   <style>
+    :root {
+      --primary-color: #2563eb;
+      --primary-hover: #1d4ed8;
+      --secondary-color: #64748b;
+      --success-color: #059669;
+      --warning-color: #d97706;
+      --danger-color: #dc2626;
+      --background: #f8fafc;
+      --card-background: #ffffff;
+      --border-color: #e2e8f0;
+      --text-primary: #1e293b;
+      --text-secondary: #64748b;
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body { 
-      font-family: sans-serif; 
-      max-width: 1000px; 
-      margin: 1em auto; 
-      padding: 0 1em;
+      font-family: Arial, sans-serif;
+      max-width: 1200px; 
+      margin: 0 auto; 
+      padding: 1rem;
+      background: var(--background);
+      color: var(--text-primary);
       font-size: 14px;
+      line-height: 1.5;
     }
     
-    .container {
-      display: block;
-    }
-    
-    .container .section {
-      margin-bottom: 0.8em;
-      width: 100%;
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
     }
     
     .full-width {
@@ -26,183 +46,366 @@
     }
     
     h1 { 
-      font-size: 1.5em; 
-      margin: 0.5em 0; 
+      font-size: 1.75rem; 
+      font-weight: 700;
+      margin: 0 0 1.5rem 0; 
       text-align: center;
+      color: var(--text-primary);
     }
     
     h2 { 
-      font-size: 1.1em; 
-      margin: 0 0 0.5em 0; 
-      color: #333;
+      font-size: 1rem; 
+      font-weight: 600;
+      margin: 0 0 0.75rem 0; 
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h2::before {
+      content: '';
+      width: 4px;
+      height: 1rem;
+      background: var(--primary-color);
+      border-radius: 2px;
+    }
+
+    h3 {
+      font-size: 0.875rem;
+      font-weight: 600;
+      margin: 1.5rem 0 0.75rem 0;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.5rem;
+    }
+
+    h3:first-of-type {
+      margin-top: 0;
     }
     
-    label { 
-      display: block; 
-      margin: 0.3em 0; 
-      font-size: 0.9em;
+    .card { 
+      background: var(--card-background);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
+    }
+    
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+    
+    .status-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0.75rem;
+      background: var(--background);
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+    }
+    
+    .status-label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    
+    .status-value {
+      font-weight: 600;
+      font-size: 0.875rem;
     }
     
     .inline-form {
       display: flex;
       align-items: center;
-      gap: 0.5em;
+      gap: 0.75rem;
       flex-wrap: wrap;
+      margin-bottom: 0.75rem;
     }
     
-    .inline-form label {
-      margin: 0;
+    .form-group {
       display: flex;
-      align-items: center;
-      gap: 0.3em;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    
+    .form-group label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
     }
     
     input[type=number], input[type=text] { 
-      width: 60px; 
-      padding: 0.2em;
-      border: 1px solid #ddd;
-      border-radius: 3px;
+      width: 70px;
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: border-color 0.15s ease;
+    }
+    
+    input[type=number]:focus, input[type=text]:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
     }
     
     button { 
-      margin: 0.3em 0.3em 0.3em 0; 
-      padding: 0.4em 0.8em;
-      background: #007acc;
+      padding: 0.5rem 1rem;
+      background: var(--primary-color);
       color: white;
       border: none;
-      border-radius: 3px;
-      cursor: pointer;
-      font-size: 0.85em;
-    }
-    
-    button:hover { background: #005999; }
-    
-    .section { 
-      border: 1px solid #ddd; 
-      padding: 0.8em; 
-      margin-bottom: 0.8em; 
       border-radius: 6px;
-      background: #fafafa;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: background-color 0.15s ease;
+      min-height: 36px;
     }
     
-    #status { 
-      background: #f0f8ff; 
-      margin-bottom: 0.8em;
-      display: block;
+    button:hover { 
+      background: var(--primary-hover);
     }
-    
-    .status-item {
-      display: flex;
-      gap: 1em;
-      padding: 0.2em 0;
-      border-bottom: 1px solid #eee;
+
+    button.secondary {
+      background: var(--secondary-color);
     }
-    
-    .status-item:last-child { border-bottom: none; }
+
+    button.secondary:hover {
+      background: #475569;
+    }
+
+    button.danger {
+      background: var(--danger-color);
+    }
+
+    button.danger:hover {
+      background: #b91c1c;
+    }
+
+    button.success {
+      background: var(--success-color);
+    }
+
+    button.success:hover {
+      background: #047857;
+    }
     
     .error { 
-      color: red; 
-      font-weight: bold;
-      margin: 0.5em 0;
+      color: var(--danger-color);
+      font-weight: 600;
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+      background: rgb(220 38 38 / 0.1);
+      border-radius: 6px;
+      border-left: 4px solid var(--danger-color);
     }
     
     table { 
-      border-collapse: collapse; 
-      margin: 0.5em 0;
-      font-size: 0.85em;
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+      font-size: 0.8rem;
+      background: var(--card-background);
+      border-radius: 6px;
+      overflow: hidden;
     }
     
     th, td { 
-      border: 1px solid #ddd; 
-      padding: 0.4em; 
-      text-align: center; 
+      padding: 0.5rem 0.25rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
     }
     
     th { 
-      background-color: #f5f5f5;
-      font-size: 0.8em;
+      background: var(--background);
+      font-weight: 600;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    
+    tbody tr:hover {
+      background: var(--background);
     }
     
     input.dosing-input { 
-      width: 40px;
-      padding: 0.1em;
+      width: 50px;
+      padding: 0.25rem;
       text-align: center;
+      font-size: 0.75rem;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
     }
     
     .control-group {
       display: flex;
-      gap: 0.5em;
+      gap: 0.5rem;
       align-items: center;
       flex-wrap: wrap;
     }
     
-    #calInputs label {
-      display: flex;
-      justify-content: space-between;
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .compact-table {
+      font-size: 0.75rem;
+    }
+
+    .compact-table th,
+    .compact-table td {
+      padding: 0.375rem 0.25rem;
+    }
+
+    .pump-controls {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr;
+      gap: 0.5rem;
       align-items: center;
-      min-width: 200px;
-      margin: 0.3em 0;
+    }
+
+    .pump-name {
+      font-weight: 500;
+      text-align: left;
+      padding-left: 0.5rem;
+    }
+
+    .cal-grid {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.75rem;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      background: var(--background);
+      border-radius: 6px;
+    }
+
+    .cal-label {
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    .cal-input-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .cal-input-group input {
+      width: 80px;
+    }
+
+    .cal-unit {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
     }
     
-    /* Mobile responsiveness */
-    @media (max-width: 600px) {
-      .container {
-        display: block !important;
+    /* Mobile styles */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.75rem;
+        font-size: 13px;
+      }
+
+      .main-grid {
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
       }
       
-      .container .section {
-        margin-bottom: 0.8em;
-        width: 100% !important;
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+      }
+      
+      .card {
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+
+      .status-grid {
+        grid-template-columns: 1fr !important;
+        gap: 0.5rem;
+      }
+
+      .status-item {
+        padding: 0.5rem;
       }
       
       .inline-form {
         flex-direction: column;
-        align-items: flex-start;
-        gap: 0.5em;
+        align-items: stretch;
+        gap: 0.75rem;
+      }
+
+      .form-group {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
       }
       
       .control-group {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
+      }
+      
+      .control-group button,
+      .button-grid button {
         width: 100%;
       }
-      
-      .control-group button {
-        width: 100%;
-        margin: 0.2em 0;
-      }
-      
-      body {
-        padding: 0 0.5em;
-        margin: 0.5em auto;
-        font-size: 13px;
-        max-width: 100% !important;
-      }
-      
-      h1 {
-        font-size: 1.3em;
-      }
-      
-      h2 {
-        font-size: 1em;
+
+      .button-grid {
+        grid-template-columns: 1fr;
       }
       
       th, td {
-        padding: 0.2em;
-        font-size: 0.75em;
+        padding: 0.375rem 0.125rem;
+        font-size: 0.7rem;
       }
       
       input.dosing-input {
-        width: 35px;
+        width: 45px;
+        font-size: 0.7rem;
       }
       
       input[type=number], input[type=text] {
         width: 80px;
       }
-      
-      button {
-        padding: 0.6em 1em;
-        font-size: 0.9em;
+
+      .pump-controls {
+        grid-template-columns: 1fr;
+        gap: 0.25rem;
+        text-align: center;
+      }
+
+      .pump-name {
+        text-align: center;
+        padding: 0.5rem;
+        background: var(--background);
+        border-radius: 4px;
+        font-weight: 600;
+      }
+
+      .cal-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+        text-align: center;
       }
     }
   </style>
@@ -212,71 +415,81 @@
   
   <div id="error" class="error"></div>
   
-  <div class="section full-width">
+  <div class="card full-width">
     <h2>System Status</h2>
-    <div id="status">
+    <div class="status-grid">
       <div class="status-item">
-        <span>Tank Full:</span>
-        <span id="tankFull">?</span>
+        <div class="status-label">Tank Full</div>
+        <div class="status-value" id="tankFull">?</div>
       </div>
       <div class="status-item">
-        <span>Filling:</span>
-        <span id="filling">?</span>
+        <div class="status-label">Filling</div>
+        <div class="status-value" id="filling">?</div>
       </div>
       <div class="status-item">
-        <span>Aux Pump:</span>
-        <span id="auxPump">?</span>
+        <div class="status-label">Aux Pump</div>
+        <div class="status-value" id="auxPump">?</div>
       </div>
       <div class="status-item">
-        <span>Watering Today:</span>
-        <span id="wateringToday">?</span>
+        <div class="status-label">Watering Today</div>
+        <div class="status-value" id="wateringToday">?</div>
       </div>
       <div class="status-item">
-        <span>NTP Synced:</span>
-        <span id="ntp">?</span>
+        <div class="status-label">NTP Synced</div>
+        <div class="status-value" id="ntp">?</div>
       </div>
       <div class="status-item">
-        <span>Time:</span>
-        <span id="time">?</span>
+        <div class="status-label">Current Time</div>
+        <div class="status-value" id="time">?</div>
       </div>
     </div>
   </div>
 
-  <div class="container">
-    <div class="section">
-      <h2>Tank Controls</h2>
-      <div class="control-group">
-        <button id="fillMainBtn">Fill Main</button>
-        <button id="stopMainBtn">Stop Fill</button>
+  <div class="main-grid">
+    <div class="card">
+      <h2>System Controls</h2>
+      
+      <h3>Tank Controls</h3>
+      <div class="button-grid">
+        <button id="fillMainBtn" class="success">Fill Main</button>
+        <button id="stopMainBtn" class="danger">Stop Fill</button>
       </div>
       <form id="auxPumpForm" class="inline-form">
-        <label>Aux Pump (ms): <input type="number" id="auxMs" value="5000"></label>
-        <button type="submit">Run</button>
-        <button type="button" id="stopAuxBtn">Stop</button>
+        <div class="form-group">
+          <label>Duration (ms)</label>
+          <input type="number" id="auxMs" value="5000">
+        </div>
+        <button type="submit">Run Aux</button>
+        <button type="button" id="stopAuxBtn" class="secondary">Stop</button>
       </form>
-    </div>
 
-    <div class="section">
-      <h2>Fertilizer Settings</h2>
+      <h3>Fertilizer Settings</h3>
       <form id="fertSpeedForm" class="inline-form">
-        <label>Motor Speed: <input type="number" id="fertSpeed" min="1" max="255" value="50"></label>
+        <div class="form-group">
+          <label>Motor Speed</label>
+          <input type="number" id="fertSpeed" min="1" max="255" value="50">
+        </div>
         <button type="submit">Save</button>
       </form>
-    </div>
 
-    <div class="section">
-      <h2>Schedule & Watering</h2>
+      <h3>Schedule & Watering</h3>
       <form id="scheduleForm" class="inline-form">
-        <label>Hour: <input type="number" id="hour" min="0" max="23"></label>
-        <label>Minute: <input type="number" id="minute" min="0" max="59"></label>
+        <div class="form-group">
+          <label>Hour</label>
+          <input type="number" id="hour" min="0" max="23">
+        </div>
+        <div class="form-group">
+          <label>Minute</label>
+          <input type="number" id="minute" min="0" max="59">
+        </div>
         <button type="submit">Save</button>
       </form>
-      <div class="control-group">
-        <button id="startWateringBtn">Start Watering</button>
+      <div class="button-grid">
+        <button id="startWateringBtn" class="success">Start Watering</button>
       </div>
     </div>
 
-    <div class="section">
+    <div class="card">
       <h2>Pump Calibration</h2>
       <form id="calForm">
         <div id="calInputs"></div>
@@ -285,82 +498,66 @@
     </div>
   </div>
 
-  <div class="section full-width">
+  <div class="card full-width">
     <h2>Weekly Dosing Schedule</h2>
     <form id="weeklyDosingForm">
-      <table id="weeklyDosingTable">
+      <table id="weeklyDosingTable" class="compact-table">
         <thead>
           <tr>
             <th>Day</th>
             <th>Water</th>
-            <th>Bio-Grow (ml)</th>
-            <th>Bio-Bloom (ml)</th>
-            <th>Top-Max (ml)</th>
-            <th>CalMag (ml)</th>
-            <th>PhDown (ml)</th>
+            <th>Bio-Grow<br>(ml)</th>
+            <th>Bio-Bloom<br>(ml)</th>
+            <th>Top-Max<br>(ml)</th>
+            <th>CalMag<br>(ml)</th>
+            <th>PhDown<br>(ml)</th>
           </tr>
         </thead>
         <tbody></tbody>
       </table>
-      <button type="submit">Save Weekly Schedule</button>
+      <div class="button-grid">
+        <button type="submit">Save Weekly Schedule</button>
+      </div>
     </form>
   </div>
 
-  <div class="section full-width">
+  <div class="card full-width">
     <h2>Debug - Manual Pump Control</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Pump</th>
-          <th>On</th>
-          <th>Off</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>Bio-Grow</td>
-          <td><button type="button" id="debugBioGrowOn">On</button></td>
-          <td><button type="button" id="debugBioGrowOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>Bio-Bloom</td>
-          <td><button type="button" id="debugBioBloomOn">On</button></td>
-          <td><button type="button" id="debugBioBloomOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>Top-Max</td>
-          <td><button type="button" id="debugTopMaxOn">On</button></td>
-          <td><button type="button" id="debugTopMaxOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>CalMag</td>
-          <td><button type="button" id="debugCalMagOn">On</button></td>
-          <td><button type="button" id="debugCalMagOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>PhDown</td>
-          <td><button type="button" id="debugPhDownOn">On</button></td>
-          <td><button type="button" id="debugPhDownOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>Main Tank</td>
-          <td><button type="button" id="debugMainTankOn">On</button></td>
-          <td><button type="button" id="debugMainTankOff">Off</button></td>
-        </tr>
-        <tr>
-          <td>Aux Pump</td>
-          <td><button type="button" id="debugAuxPumpOn">On</button></td>
-          <td><button type="button" id="debugAuxPumpOff">Off</button></td>
-        </tr>
-      </tbody>
-    </table>
-    <div class="control-group">
-      <button type="button" id="stopAllPumps">Stop All Pumps</button>
+    <div class="pump-controls">
+      <div class="pump-name">Bio-Grow</div>
+      <button type="button" id="debugBioGrowOn" class="success">On</button>
+      <button type="button" id="debugBioGrowOff" class="danger">Off</button>
+      
+      <div class="pump-name">Bio-Bloom</div>
+      <button type="button" id="debugBioBloomOn" class="success">On</button>
+      <button type="button" id="debugBioBloomOff" class="danger">Off</button>
+      
+      <div class="pump-name">Top-Max</div>
+      <button type="button" id="debugTopMaxOn" class="success">On</button>
+      <button type="button" id="debugTopMaxOff" class="danger">Off</button>
+      
+      <div class="pump-name">CalMag</div>
+      <button type="button" id="debugCalMagOn" class="success">On</button>
+      <button type="button" id="debugCalMagOff" class="danger">Off</button>
+      
+      <div class="pump-name">PhDown</div>
+      <button type="button" id="debugPhDownOn" class="success">On</button>
+      <button type="button" id="debugPhDownOff" class="danger">Off</button>
+      
+      <div class="pump-name">Main Tank</div>
+      <button type="button" id="debugMainTankOn" class="success">On</button>
+      <button type="button" id="debugMainTankOff" class="danger">Off</button>
+      
+      <div class="pump-name">Aux Pump</div>
+      <button type="button" id="debugAuxPumpOn" class="success">On</button>
+      <button type="button" id="debugAuxPumpOff" class="danger">Off</button>
+    </div>
+    <div class="button-grid" style="margin-top: 1rem;">
+      <button type="button" id="stopAllPumps" class="danger">Stop All Pumps</button>
     </div>
   </div>
   <script>
-    function fetchAuth(url, opts={}) {
-      opts.headers = opts.headers || {};
+    function apiCall(url, opts={}) {
       return fetch(url, opts).then(r => {
         if (!r.ok) return r.text().then(t=>{ showError(t); throw new Error(t); });
         return r;
@@ -372,7 +569,7 @@
     }
     // Status polling
     function pollStatus() {
-      fetchAuth('/api/status').then(r=>r.json()).then(st=>{
+      apiCall('/api/status').then(r=>r.json()).then(st=>{
         document.getElementById('tankFull').textContent = st.tank_full ? 'Yes' : 'No';
         document.getElementById('filling').textContent = st.filling ? 'Yes' : 'No';
         document.getElementById('auxPump').textContent = st.aux_pump ? 'Yes' : 'No';
@@ -435,8 +632,8 @@
       
       // Send both requests
       Promise.all([
-        fetchAuth('/api/weekly_dosing', {method:'POST', body:dosingData}),
-        fetchAuth('/api/weekly_watering_enabled', {method:'POST', body:enabledData})
+        apiCall('/api/weekly_dosing', {method:'POST', body:dosingData}),
+        apiCall('/api/weekly_watering_enabled', {method:'POST', body:enabledData})
       ]).catch(()=>{});
     };
     
@@ -451,18 +648,18 @@
       const data = new URLSearchParams();
       data.append('hour', document.getElementById('hour').value);
       data.append('minute', document.getElementById('minute').value);
-      fetchAuth('/api/schedule', {method:'POST', body:data}).catch(()=>{});
+      apiCall('/api/schedule', {method:'POST', body:data}).catch(()=>{});
     };
     // Main tank fill/stop
     document.getElementById('fillMainBtn').onclick = function(){
-      fetchAuth('/api/fill_main_tank', {method:'POST'}).catch(()=>{});
+      apiCall('/api/fill_main_tank', {method:'POST'}).catch(()=>{});
     };
     document.getElementById('stopMainBtn').onclick = function(){
-      fetchAuth('/api/stop_main_tank', {method:'POST'}).catch(()=>{});
+      apiCall('/api/stop_main_tank', {method:'POST'}).catch(()=>{});
     };
     // Watering sequence
     document.getElementById('startWateringBtn').onclick = function(){
-      fetchAuth('/api/start_watering', {method:'POST'})
+      apiCall('/api/start_watering', {method:'POST'})
         .catch(()=>{});
     };
     // Aux pump run/stop
@@ -471,10 +668,10 @@
       const ms = document.getElementById('auxMs').value;
       const data = new URLSearchParams();
       data.append('ms', ms);
-      fetchAuth('/api/run_aux_pump', {method:'POST', body:data}).catch(()=>{});
+      apiCall('/api/run_aux_pump', {method:'POST', body:data}).catch(()=>{});
     };
     document.getElementById('stopAuxBtn').onclick = function(){
-      fetchAuth('/api/stop_aux_pump', {method:'POST'}).catch(()=>{});
+      apiCall('/api/stop_aux_pump', {method:'POST'}).catch(()=>{});
     };
     // Load fertilizer motor speed
     fetch('/api/fertilizer_motor_speed').then(r=>r.json()).then(data=>{
@@ -484,16 +681,24 @@
     document.getElementById('fertSpeedForm').onsubmit = function(e){
       e.preventDefault();
       const data = new URLSearchParams();
-      data.append('Fertilizer Pump 1fertilizer_motor_speed', document.getElementById('fertSpeed').value);
-      fetchAuth('/api/fertilizer_motor_speed', {method:'POST', body:data}).catch(()=>{});
+      data.append('fertilizer_motor_speed', document.getElementById('fertSpeed').value);
+      apiCall('/api/fertilizer_motor_speed', {method:'POST', body:data}).catch(()=>{});
     };
     // Load calibration
-    fetchAuth('/api/calibration').then(r=>r.json()).then(cal=>{
+    apiCall('/api/calibration').then(r=>r.json()).then(cal=>{
       const ci = document.getElementById('calInputs');
       const fertilizerNames = ['Bio-Grow', 'Bio-Bloom', 'Top-Max', 'CalMag', 'PhDown'];
       ci.innerHTML = '';
       cal.forEach((c, i) => {
-        ci.innerHTML += `<label>${fertilizerNames[i]}: <input type="number" step="0.01" id="cal${i}" value="${c}"> ml/sec</label>`;
+        ci.innerHTML += `
+          <div class="cal-grid">
+            <div class="cal-label">${fertilizerNames[i]}</div>
+            <div class="cal-input-group">
+              <input type="number" step="0.01" id="cal${i}" value="${c}">
+              <span class="cal-unit">ml/sec</span>
+            </div>
+          </div>
+        `;
       });
     });
     // Save calibration
@@ -501,59 +706,59 @@
       e.preventDefault();
       const data = new URLSearchParams();
       for(let i=0;i<5;i++) data.append('cal'+i, document.getElementById('cal'+i).value);
-      fetchAuth('/api/calibration', {method:'POST', body: data}).catch(()=>{});
+      apiCall('/api/calibration', {method:'POST', body: data}).catch(()=>{});
     };
     
     // Debug pump controls
     document.getElementById('debugBioGrowOn').onclick = function(){
       const speed = document.getElementById('fertSpeed').value;
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'on', speed: speed})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'on', speed: speed})}).catch(()=>{});
     };
     document.getElementById('debugBioGrowOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '0', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugBioBloomOn').onclick = function(){
       const speed = document.getElementById('fertSpeed').value;
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'on', speed: speed})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'on', speed: speed})}).catch(()=>{});
     };
     document.getElementById('debugBioBloomOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '1', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugTopMaxOn').onclick = function(){
       const speed = document.getElementById('fertSpeed').value;
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'on', speed: speed})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'on', speed: speed})}).catch(()=>{});
     };
     document.getElementById('debugTopMaxOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '2', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugCalMagOn').onclick = function(){
       const speed = document.getElementById('fertSpeed').value;
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'on', speed: speed})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'on', speed: speed})}).catch(()=>{});
     };
     document.getElementById('debugCalMagOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '3', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugPhDownOn').onclick = function(){
       const speed = document.getElementById('fertSpeed').value;
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'on', speed: speed})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'on', speed: speed})}).catch(()=>{});
     };
     document.getElementById('debugPhDownOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '4', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugMainTankOn').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'on'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '5', action: 'on'})}).catch(()=>{});
     };
     document.getElementById('debugMainTankOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '5', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugAuxPumpOn').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'on'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'on'})}).catch(()=>{});
     };
     document.getElementById('debugAuxPumpOff').onclick = function(){
-      fetchAuth('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('stopAllPumps').onclick = function(){
-      fetchAuth('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
+      apiCall('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
     };
   </script>
 </body>
