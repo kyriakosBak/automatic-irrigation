@@ -45,7 +45,7 @@ float get_current_dosing_ml(int fertilizer_index) {
     if (fertilizer_index >= 0 && fertilizer_index < NUM_FERTILIZERS) {
         return weekly_dosing_ml[day][fertilizer_index];
     }
-    return 10.0; // Default value
+    return 1.0; // Default value
 }
 
 bool is_watering_enabled_today() {

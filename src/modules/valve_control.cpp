@@ -2,8 +2,8 @@
 #include <Arduino.h>
 #include "config/config.h"
 
-#define VALVE_OPEN LOW
-#define VALVE_CLOSED HIGH
+#define VALVE_OPEN HIGH
+#define VALVE_CLOSED LOW
 
 static bool valve_open = false;
 

@@ -68,17 +68,6 @@ void run_motor_forward(int motor_number) {
     }
 }
 
-void run_motor_backward(int motor_number) {
-    if (motor_number < 1 || motor_number > 7) {
-        return; // Invalid motor number
-    }
-
-    int motor_index = motor_number - 1;
-    if (motors[motor_index]) {
-        motors[motor_index]->run(BACKWARD);
-    }
-}
-
 void stop_motor(int motor_number) {
     if (motor_number < 1 || motor_number > 7) {
         return; // Invalid motor number

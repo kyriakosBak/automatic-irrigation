@@ -38,7 +38,7 @@ void init_weekly_dosing() {
     for (int day = 0; day < 7; day++) {
         weekly_watering_enabled[day] = true; // Enable watering for all days by default
         for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
-            weekly_dosing_ml[day][fert] = 10.0;
+            weekly_dosing_ml[day][fert] = 1.0;
         }
     }
 }

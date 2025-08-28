@@ -752,10 +752,10 @@
       apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '5', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('debugHumidifierPumpOn').onclick = function(){
-      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'on'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'on'})}).catch(()=>{});
     };
     document.getElementById('debugHumidifierPumpOff').onclick = function(){
-      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '7', action: 'off'})}).catch(()=>{});
+      apiCall('/api/debug_pump', {method:'POST', body: new URLSearchParams({pump: '6', action: 'off'})}).catch(()=>{});
     };
     document.getElementById('stopAllPumps').onclick = function(){
       apiCall('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
