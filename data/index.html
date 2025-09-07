@@ -147,7 +147,7 @@
     }
     
     input[type=number], input[type=text] { 
-      width: 70px;
+      width: 120px;
       padding: 0.5rem 0.75rem;
       border: 1px solid var(--border-color);
       border-radius: 6px;
@@ -431,6 +431,10 @@
         <div class="status-value" id="humidifierPump">?</div>
       </div>
       <div class="status-item">
+        <div class="status-label">Watering Pump</div>
+        <div class="status-value" id="wateringPump">?</div>
+      </div>
+      <div class="status-item">
         <div class="status-label">Watering Today</div>
         <div class="status-value" id="wateringToday">?</div>
       </div>
@@ -463,13 +467,26 @@
         <button type="button" id="stopHumidifierBtn" class="secondary">Stop</button>
       </form>
 
-      <h3>Fertilizer Settings</h3>
+      <form id="wateringPumpForm" class="inline-form">
+        <div class="form-group">
+          <label>Duration (ms)</label>
+          <input type="number" id="wateringMs" value="300000">
+        </div>
+        <button type="submit">Run Watering Pump</button>
+        <button type="button" id="stopWateringBtn" class="secondary">Stop</button>
+      </form>
+
+      <h3>System Settings</h3>
       <form id="fertSpeedForm" class="inline-form">
         <div class="form-group">
-          <label>Motor Speed</label>
+          <label>Fertilizer Motor Speed</label>
           <input type="number" id="fertSpeed" min="1" max="255" value="50">
         </div>
-        <button type="submit">Save</button>
+        <div class="form-group">
+          <label>Default Watering Duration (ms)</label>
+          <input type="number" id="wateringDuration" min="1000" max="1800000" value="300000">
+        </div>
+        <button type="submit">Save Settings</button>
       </form>
 
       <h3>Schedule & Watering</h3>
@@ -573,9 +590,23 @@
         document.getElementById('tankFull').textContent = st.tank_full ? 'Yes' : 'No';
         document.getElementById('filling').textContent = st.filling ? 'Yes' : 'No';
         document.getElementById('humidifierPump').textContent = st.humidifier_pump ? 'Yes' : 'No';
+        document.getElementById('wateringPump').textContent = st.watering_pump ? 'Yes' : 'No';
         document.getElementById('wateringToday').textContent = st.watering_today ? 'Yes' : 'No';
         document.getElementById('ntp').textContent = st.ntp_synced ? 'Yes' : 'No';
         document.getElementById('time').textContent = st.time;
+        
+        // Update watering duration inputs only if they don't have focus (user isn't editing them)
+        if (st.watering_duration_ms !== undefined) {
+          const wateringMsInput = document.getElementById('wateringMs');
+          const wateringDurationInput = document.getElementById('wateringDuration');
+          
+          if (document.activeElement !== wateringMsInput) {
+            wateringMsInput.value = st.watering_duration_ms;
+          }
+          if (document.activeElement !== wateringDurationInput) {
+            wateringDurationInput.value = st.watering_duration_ms;
+          }
+        }
       }).catch(()=>{});
     }
     setInterval(pollStatus, 2000); pollStatus();
@@ -673,17 +704,45 @@
     document.getElementById('stopHumidifierBtn').onclick = function(){
       apiCall('/api/stop_humidifier_pump', {method:'POST'}).catch(()=>{});
     };
+    
+    // Watering pump run/stop
+    document.getElementById('wateringPumpForm').onsubmit = function(e){
+      e.preventDefault();
+      const ms = document.getElementById('wateringMs').value;
+      const data = new URLSearchParams();
+      data.append('ms', ms);
+      apiCall('/api/run_watering_pump', {method:'POST', body:data}).catch(()=>{});
+    };
+    document.getElementById('stopWateringBtn').onclick = function(){
+      apiCall('/api/stop_watering_pump', {method:'POST'}).catch(()=>{});
+    };
     // Load fertilizer motor speed
     fetch('/api/fertilizer_motor_speed').then(r=>r.json()).then(data=>{
       document.getElementById('fertSpeed').value = data.fertilizer_motor_speed;
     });
-    // Save fertilizer motor speed
+    // Save system settings (fertilizer motor speed and watering duration)
     document.getElementById('fertSpeedForm').onsubmit = function(e){
       e.preventDefault();
-      const data = new URLSearchParams();
-      data.append('fertilizer_motor_speed', document.getElementById('fertSpeed').value);
-      apiCall('/api/fertilizer_motor_speed', {method:'POST', body:data}).catch(()=>{});
+      
+      // Save fertilizer motor speed
+      const fertData = new URLSearchParams();
+      fertData.append('fertilizer_motor_speed', document.getElementById('fertSpeed').value);
+      apiCall('/api/fertilizer_motor_speed', {method:'POST', body:fertData});
+      
+      // Save watering duration
+      const waterData = new URLSearchParams();
+      waterData.append('watering_duration_ms', document.getElementById('wateringDuration').value);
+      apiCall('/api/watering_duration', {method:'POST', body:waterData}).then(()=>{
+        // Update the manual run form with the new default value
+        document.getElementById('wateringMs').value = document.getElementById('wateringDuration').value;
+      });
     };
+    
+    // Load watering duration
+    fetch('/api/watering_duration').then(r=>r.json()).then(data=>{
+      document.getElementById('wateringDuration').value = data.watering_duration_ms;
+      document.getElementById('wateringMs').value = data.watering_duration_ms;
+    });
     // Load calibration
     apiCall('/api/calibration').then(r=>r.json()).then(cal=>{
       const ci = document.getElementById('calInputs');

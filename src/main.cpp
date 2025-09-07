@@ -26,6 +26,7 @@ int schedule_minute = 0;
 
 float pump_calibration[NUM_FERTILIZERS] = {1, 1, 1, 1, 1}; // ml/sec for fertilizer pumps only
 int fertilizer_motor_speed = 50; // Default motor speed for fertilizer pumps
+unsigned long watering_duration_ms = MAX_WATERING_TIME_MS; // Configurable watering duration
 
 AsyncWebServer server(80);
 String wifi_ssid = "";
@@ -103,6 +104,8 @@ void load_settings() {
     for (int i = 0; i < NUM_FERTILIZERS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
     if (doc["fertilizer_motor_speed"].is<int>())
         fertilizer_motor_speed = doc["fertilizer_motor_speed"].as<int>();
+    if (doc["watering_duration_ms"].is<unsigned long>())
+        watering_duration_ms = doc["watering_duration_ms"].as<unsigned long>();
     Serial.println("Settings loaded from LittleFS");
 }
 
@@ -129,6 +132,7 @@ void save_settings() {
     doc["calibration"] = JsonArray();
     for (int i = 0; i < NUM_FERTILIZERS; i++) doc["calibration"].add(pump_calibration[i]);
     doc["fertilizer_motor_speed"] = fertilizer_motor_speed;
+    doc["watering_duration_ms"] = watering_duration_ms;
     File f = filesystem.open("/settings.json", "w");
     if (!f) {
         Serial.println("Failed to open settings.json for writing");
@@ -318,7 +322,7 @@ void setup_routes() {
     
     // REST API: Run watering pump
     server.on("/api/run_watering_pump", HTTP_POST, [](AsyncWebServerRequest *request){
-        unsigned long ms = MAX_WATERING_TIME_MS;
+        unsigned long ms = watering_duration_ms;
         if (request->hasParam("ms", true)) ms = request->getParam("ms", true)->value().toInt();
         pump_control_run_watering_pump(ms);
         request->send(200, "text/plain", "Watering pump running");
@@ -368,6 +372,24 @@ void setup_routes() {
         }
         save_settings();
         request->send(200, "text/plain", "Fertilizer motor speed saved");
+    });
+    
+    // REST API: Get watering duration
+    server.on("/api/watering_duration", HTTP_GET, [](AsyncWebServerRequest *request){
+        String json = "{\"watering_duration_ms\":" + String(watering_duration_ms) + "}";
+        request->send(200, "application/json", json);
+    });
+    
+    // REST API: Set watering duration
+    server.on("/api/watering_duration", HTTP_POST, [](AsyncWebServerRequest *request){
+        if (request->hasParam("watering_duration_ms", true)) {
+            watering_duration_ms = request->getParam("watering_duration_ms", true)->value().toInt();
+            // Clamp the value to a reasonable range (1 second to 30 minutes)
+            if (watering_duration_ms < 1000) watering_duration_ms = 1000;
+            if (watering_duration_ms > 1800000) watering_duration_ms = 1800000;
+        }
+        save_settings();
+        request->send(200, "text/plain", "Watering duration saved");
     });
     
     // REST API: Debug pump control
@@ -451,6 +473,7 @@ void setup_routes() {
         doc["filling"] = filling;
         doc["humidifier_pump"] = humidifier_pump_active;
         doc["watering_pump"] = watering_pump_active;
+        doc["watering_duration_ms"] = watering_duration_ms;
         
         // Add watering enabled status for today
         time_t now = time(nullptr);
@@ -583,10 +606,10 @@ void loop() {
             }
             break;
         case FILLED:
-            // Start watering pump for maximum time after tank is filled
-            pump_control_run_watering_pump(MAX_WATERING_TIME_MS);
+            // Start watering pump for configured time after tank is filled
+            pump_control_run_watering_pump(watering_duration_ms);
             watering_state = WATERING;
-            Serial.println("[DEBUG] Tank filled - starting watering pump for maximum time");
+            Serial.println("[DEBUG] Tank filled - starting watering pump for configured time");
             break;
         case WATERING:
             // Wait for watering to complete (pump will stop automatically)
