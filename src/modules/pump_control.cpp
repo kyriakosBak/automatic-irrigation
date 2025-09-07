@@ -53,7 +53,7 @@ bool is_watering_enabled_today() {
     return weekly_watering_enabled[day];
 }
 
-void trigger_dosing() {
+void start_fertilizer_dosing() {
     // Check if watering is enabled for today
     if (!is_watering_enabled_today()) {
         Serial.println("[DEBUG] Watering is disabled for today - skipping dosing");

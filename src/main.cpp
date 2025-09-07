@@ -16,6 +16,7 @@ fs::FS &filesystem = LittleFS;
 
 // Function declarations
 void setup_routes();
+void start_watering_sequence();
 
 // Dosing settings (ml per fertilizer) - now per day of week
 float weekly_dosing_ml[7][NUM_FERTILIZERS]; // [day_of_week][fertilizer_index]
@@ -158,6 +159,11 @@ bool load_wifi_credentials() {
 // Forward declaration for scheduler
 void trigger_dosing();
 
+// This is the function that scheduler should call
+void trigger_dosing() {
+    start_watering_sequence();
+}
+
 void start_ap_mode() {
     WiFi.softAP("IrrigationSetup");
     IPAddress IP = WiFi.softAPIP();
@@ -197,7 +203,6 @@ static bool ntp_synced = false;
 enum WateringState {
     IDLE,
     DOSING,
-    WAIT_FOR_DOSING,
     FILLING,
     FILLED,
     WATERING
@@ -206,7 +211,7 @@ static WateringState watering_state = IDLE;
 
 void start_watering_sequence() {
     if (watering_state == IDLE) {
-        trigger_dosing();
+        start_fertilizer_dosing();
         watering_state = DOSING;
     }
 }
@@ -575,14 +580,8 @@ void loop() {
         case IDLE:
             break;
         case DOSING:
-            if (pump_control_is_dosing()) {
-                watering_state = WAIT_FOR_DOSING;
-            } else {
-                watering_state = FILLING;
-            }
-            break;
-        case WAIT_FOR_DOSING:
             if (!pump_control_is_dosing()) {
+                // Dosing is complete, move to filling
                 valve_control_fill_main_tank();
                 filling = true;
                 fill_start_time = millis();

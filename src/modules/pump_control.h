@@ -1,7 +1,7 @@
 #pragma once
 void pump_control_init();
 void pump_control_run();
-void trigger_dosing();
+void start_fertilizer_dosing();
 unsigned long ml_to_runtime(int pump, float ml);
 void pump_control_run_humidifier_pump(unsigned long ms);
 void pump_control_stop_humidifier_pump();

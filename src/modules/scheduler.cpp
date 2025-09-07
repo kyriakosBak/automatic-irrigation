@@ -10,7 +10,7 @@ extern int schedule_minute;
 unsigned long last_run = 0;
 bool has_run_today = false;
 
-void trigger_dosing(); // To be implemented in pump_control or main
+void trigger_dosing(); // Implemented in main.cpp
 
 void scheduler_init() {
     last_run = 0;
