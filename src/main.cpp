@@ -26,7 +26,7 @@ int schedule_hour = 8;
 int schedule_minute = 0;
 
 float pump_calibration[NUM_FERTILIZERS] = {1, 1, 1, 1, 1}; // ml/sec for fertilizer pumps only
-int fertilizer_motor_speed = 50; // Default motor speed for fertilizer pumps
+int fertilizer_motor_speed = 200; // Default motor speed for fertilizer pumps
 unsigned long watering_duration_ms = MAX_WATERING_TIME_MS; // Configurable watering duration
 
 AsyncWebServer server(80);
@@ -408,7 +408,7 @@ void setup_routes() {
         String action = request->getParam("action", true)->value();
         
         if (action == "on") {
-            int speed = 50; // Default speed
+            int speed = 200; // Default speed
             if (request->hasParam("speed", true)) {
                 speed = request->getParam("speed", true)->value().toInt();
             }

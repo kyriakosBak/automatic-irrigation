@@ -54,6 +54,8 @@ void set_motor_speed(int motor_number, int speed) {
     int motor_index = motor_number - 1;
     if (motors[motor_index]) {
         motors[motor_index]->setSpeed(speed);
+        // Add delay to ensure I2C command is processed
+        delay(50);
     }
 }
 
@@ -65,6 +67,8 @@ void run_motor_forward(int motor_number) {
     int motor_index = motor_number - 1;
     if (motors[motor_index]) {
         motors[motor_index]->run(FORWARD);
+        // Add delay to ensure I2C command is processed
+        delay(50);
     }
 }
 
@@ -76,6 +80,8 @@ void stop_motor(int motor_number) {
     int motor_index = motor_number - 1;
     if (motors[motor_index]) {
         motors[motor_index]->run(RELEASE);
+        // Add delay to ensure I2C command is processed
+        delay(50);
     }
 }
 

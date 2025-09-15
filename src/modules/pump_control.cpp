@@ -63,12 +63,18 @@ void start_fertilizer_dosing() {
     dosing_stage = 0;
     float current_ml = get_current_dosing_ml(0);
     dosing_end_time = millis() + ml_to_runtime(0, current_ml);
-    set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
-    run_motor_forward(1);
-    pump_running[0] = true;
-    Serial.print("[DEBUG] Pump 0: OPEN (dosing started, ");
-    Serial.print(current_ml);
-    Serial.println(" ml)");
+    
+    // Only start the motor if there's actually fertilizer to dose
+    if (current_ml > 0) {
+        set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
+        run_motor_forward(1);
+        pump_running[0] = true;
+        Serial.print("[DEBUG] Pump 0: OPEN (dosing started, ");
+        Serial.print(current_ml);
+        Serial.println(" ml)");
+    } else {
+        Serial.println("[DEBUG] Pump 0: SKIP (dosing amount is 0 ml)");
+    }
 }
 
 void pump_control_run_humidifier_pump(unsigned long ms) {
@@ -141,19 +147,28 @@ void pump_control_run() {
             pump_running[dosing_stage] = false;
             dosing_stage++;
             if (dosing_stage < NUM_FERTILIZERS) {
-                motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-5)
-                set_motor_speed(motor_num, fertilizer_motor_speed);
-                run_motor_forward(motor_num);
-                pump_running[dosing_stage] = true;
-                Serial.print("[DEBUG] Pump ");
-                Serial.print(dosing_stage);
-                Serial.print(": OPEN (dosing started, ");
                 float current_ml = get_current_dosing_ml(dosing_stage);
-                Serial.print(current_ml);
-                Serial.println(" ml)");
                 dosing_end_time = millis() + ml_to_runtime(dosing_stage, current_ml);
+                
+                // Only start motor if there's fertilizer to dose
+                if (current_ml > 0) {
+                    int motor_num = dosing_stage + 1;  // Convert pump index to motor number
+                    set_motor_speed(motor_num, fertilizer_motor_speed);
+                    run_motor_forward(motor_num);
+                    pump_running[dosing_stage] = true;
+                    Serial.print("[DEBUG] Pump ");
+                    Serial.print(dosing_stage);
+                    Serial.print(": OPEN (dosing started, ");
+                    Serial.print(current_ml);
+                    Serial.println(" ml)");
+                } else {
+                    Serial.print("[DEBUG] Pump ");
+                    Serial.print(dosing_stage);
+                    Serial.println(": SKIP (dosing amount is 0 ml)");
+                }
             } else {
                 dosing_stage = -1; // Done
+                Serial.println("[DEBUG] All fertilizer dosing complete");
             }
         }
         return;
