@@ -316,6 +316,88 @@
       font-size: 0.75rem;
       color: var(--text-secondary);
     }
+
+    /* Logs section styles */
+    .logs-controls {
+      display: flex;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .refresh-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .refresh-controls select {
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.875rem;
+      background: var(--card-background);
+    }
+
+    .log-container {
+      background: #1e1e1e;
+      color: #f0f0f0;
+      border-radius: 6px;
+      padding: 1rem;
+      font-family: 'Courier New', monospace;
+      font-size: 0.8rem;
+      max-height: 400px;
+      overflow-y: auto;
+      line-height: 1.4;
+      border: 1px solid var(--border-color);
+    }
+
+    .log-entry {
+      margin-bottom: 0.25rem;
+      word-wrap: break-word;
+    }
+
+    .log-timestamp {
+      color: #888;
+    }
+
+    .log-message {
+      color: #f0f0f0;
+    }
+
+    .logs-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success-color);
+    }
+
+    .status-dot.disconnected {
+      background: var(--danger-color);
+    }
+
+    .log-empty {
+      text-align: center;
+      color: var(--text-secondary);
+      padding: 2rem;
+      font-style: italic;
+    }
     
     /* Mobile styles */
     @media (max-width: 480px) {
@@ -573,6 +655,38 @@
       <button type="button" id="stopAllPumps" class="danger">Stop All Pumps</button>
     </div>
   </div>
+
+  <div class="card full-width">
+    <h2>System Logs</h2>
+    <div class="logs-info">
+      <div>
+        <span id="logCount">0</span> entries
+        <span id="lastUpdate"></span>
+      </div>
+      <div class="connection-status">
+        <span class="status-dot" id="connectionStatus"></span>
+        <span id="connectionText">Connected</span>
+      </div>
+    </div>
+    <div class="logs-controls">
+      <div class="refresh-controls">
+        <label>Auto-refresh:</label>
+        <select id="refreshInterval">
+          <option value="0">Off</option>
+          <option value="5">5 seconds</option>
+          <option value="10" selected>10 seconds</option>
+          <option value="30">30 seconds</option>
+        </select>
+        <button type="button" id="toggleRefresh">⏸️ Stop</button>
+      </div>
+      <button type="button" id="refreshLogsBtn">🔄 Refresh Now</button>
+      <button type="button" id="clearLogsBtn" class="danger">🗑️ Clear Logs</button>
+      <button type="button" id="downloadLogsBtn" class="secondary">📥 Download</button>
+    </div>
+    <div class="log-container" id="logContainer">
+      <div class="log-empty">Loading logs...</div>
+    </div>
+  </div>
   <script>
     function apiCall(url, opts={}) {
       return fetch(url, opts).then(r => {
@@ -819,6 +933,128 @@
     document.getElementById('stopAllPumps').onclick = function(){
       apiCall('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
     };
+
+    // Logs functionality
+    let logRefreshInterval = null;
+    let isRefreshing = true;
+    
+    function updateConnectionStatus(connected) {
+      const statusDot = document.getElementById('connectionStatus');
+      const statusText = document.getElementById('connectionText');
+      if (connected) {
+        statusDot.classList.remove('disconnected');
+        statusText.textContent = 'Connected';
+      } else {
+        statusDot.classList.add('disconnected');
+        statusText.textContent = 'Disconnected';
+      }
+    }
+    
+    function formatLogEntry(logLine) {
+      // Parse log format: [2025-09-15 14:32:15] Message
+      const match = logLine.match(/^(\[.+?\])\s*(.*)$/);
+      if (match) {
+        return `<div class="log-entry"><span class="log-timestamp">${match[1]}</span> <span class="log-message">${match[2]}</span></div>`;
+      } else {
+        return `<div class="log-entry"><span class="log-message">${logLine}</span></div>`;
+      }
+    }
+    
+    function loadLogs() {
+      return apiCall('/api/logs')
+        .then(r => r.json())
+        .then(logs => {
+          const container = document.getElementById('logContainer');
+          const logCount = document.getElementById('logCount');
+          const lastUpdate = document.getElementById('lastUpdate');
+          
+          if (logs.length === 0) {
+            container.innerHTML = '<div class="log-empty">No logs available</div>';
+            logCount.textContent = '0';
+          } else {
+            container.innerHTML = logs.map(formatLogEntry).join('');
+            logCount.textContent = logs.length;
+            
+            // Auto-scroll to bottom
+            container.scrollTop = container.scrollHeight;
+          }
+          
+          // Update last refresh time
+          const now = new Date();
+          lastUpdate.textContent = '(Updated: ' + now.toLocaleTimeString() + ')';
+          
+          updateConnectionStatus(true);
+        })
+        .catch(() => {
+          updateConnectionStatus(false);
+          document.getElementById('logContainer').innerHTML = '<div class="log-empty">Failed to load logs</div>';
+        });
+    }
+    
+    function startAutoRefresh() {
+      const interval = parseInt(document.getElementById('refreshInterval').value) * 1000;
+      stopAutoRefresh();
+      
+      if (interval > 0) {
+        logRefreshInterval = setInterval(loadLogs, interval);
+        isRefreshing = true;
+        document.getElementById('toggleRefresh').textContent = '⏸️ Stop';
+      } else {
+        isRefreshing = false;
+        document.getElementById('toggleRefresh').textContent = '▶️ Start';
+      }
+      
+      // Save preference
+      localStorage.setItem('logRefreshInterval', document.getElementById('refreshInterval').value);
+    }
+    
+    function stopAutoRefresh() {
+      if (logRefreshInterval) {
+        clearInterval(logRefreshInterval);
+        logRefreshInterval = null;
+      }
+    }
+    
+    // Load saved refresh interval preference
+    const savedInterval = localStorage.getItem('logRefreshInterval');
+    if (savedInterval) {
+      document.getElementById('refreshInterval').value = savedInterval;
+    }
+    
+    // Log control event handlers
+    document.getElementById('refreshInterval').onchange = startAutoRefresh;
+    
+    document.getElementById('toggleRefresh').onclick = function() {
+      if (isRefreshing) {
+        stopAutoRefresh();
+        isRefreshing = false;
+        this.textContent = '▶️ Start';
+      } else {
+        startAutoRefresh();
+      }
+    };
+    
+    document.getElementById('refreshLogsBtn').onclick = function() {
+      loadLogs();
+    };
+    
+    document.getElementById('clearLogsBtn').onclick = function() {
+      if (confirm('Are you sure you want to clear all logs? This cannot be undone.')) {
+        apiCall('/api/logs', {method: 'DELETE'})
+          .then(() => {
+            loadLogs();
+          })
+          .catch(() => {});
+      }
+    };
+    
+    document.getElementById('downloadLogsBtn').onclick = function() {
+      window.open('/api/logs/download', '_blank');
+    };
+    
+    // Initialize logs
+    loadLogs();
+    startAutoRefresh();
   </script>
 </body>
 </html>
