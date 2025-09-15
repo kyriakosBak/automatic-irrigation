@@ -3,6 +3,7 @@
 #include "modules/valve_control.h"
 #include "modules/scheduler.h"
 #include "modules/sensors.h"
+#include "modules/logger.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
 
@@ -211,6 +212,7 @@ static WateringState watering_state = IDLE;
 
 void start_watering_sequence() {
     if (watering_state == IDLE) {
+        logger_log("Starting watering sequence");
         start_fertilizer_dosing();
         watering_state = DOSING;
     }
@@ -535,6 +537,10 @@ void setup() {
     if (!LittleFS.begin()) {
         Serial.println("LittleFS Mount Failed");
     }
+    
+    logger_init();
+    logger_log("Irrigation system started");
+    
     init_weekly_dosing(); // Initialize with defaults first
     load_settings();       // Then load from file if available
 
@@ -549,9 +555,11 @@ void setup() {
         if (WiFi.status() == WL_CONNECTED) {
             Serial.println("\nWiFi connected");
             Serial.println(WiFi.localIP());
+            logger_log("WiFi connected successfully");
             wifi_ok = true;
         } else {
             Serial.println("\nWiFi connect failed");
+            logger_log("WiFi connection failed");
         }
     } else {
         Serial.println("No WiFi credentials found in LittleFS, starting AP mode");
