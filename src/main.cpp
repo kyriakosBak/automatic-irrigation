@@ -6,7 +6,7 @@
 #include "modules/logger.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
-
+#include <ArduinoOTA.h>
 
 #include <LittleFS.h>
 fs::FS &filesystem = LittleFS;
@@ -480,6 +480,7 @@ void setup_routes() {
         doc["humidifier_pump"] = humidifier_pump_active;
         doc["watering_pump"] = watering_pump_active;
         doc["watering_duration_ms"] = watering_duration_ms;
+        doc["ota_ready"] = true;
         
         // Add watering enabled status for today
         time_t now = time(nullptr);
@@ -495,6 +496,18 @@ void setup_routes() {
         }
         doc["watering_today"] = weekly_watering_enabled[current_day];
         doc["ntp_synced"] = ntp_synced;
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // REST API: Get OTA info
+    server.on("/api/ota_info", HTTP_GET, [](AsyncWebServerRequest *request){
+        StaticJsonDocument<256> doc;
+        doc["hostname"] = "irrigation-system";
+        doc["ip"] = WiFi.localIP().toString();
+        doc["ota_port"] = 3232; // Default Arduino OTA port
+        doc["password_protected"] = true;
         String response;
         serializeJson(doc, response);
         request->send(200, "application/json", response);
@@ -554,6 +567,65 @@ void sync_ntp() {
     }
 }
 
+void setup_ota() {
+    // Set hostname for OTA
+    ArduinoOTA.setHostname("irrigation");
+    
+    // Optionally set a password for OTA updates
+    ArduinoOTA.setPassword("irrigation2024");
+    
+    ArduinoOTA.onStart([]() {
+        String type;
+        if (ArduinoOTA.getCommand() == U_FLASH) {
+            type = "sketch";
+        } else { // U_LittleFS
+            type = "filesystem";
+        }
+        logger_log(("OTA Start: " + type).c_str());
+        
+        // Stop all pumps and valves during OTA
+        for (int i = 1; i <= 5; i++) {
+            stop_motor(i);
+        }
+        valve_control_stop_main_tank();
+        pump_control_stop_humidifier_pump();
+        pump_control_stop_watering_pump();
+    });
+    
+    ArduinoOTA.onEnd([]() {
+        logger_log("OTA End");
+    });
+    
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+        static unsigned int last_percent = 0;
+        unsigned int percent = (progress / (total / 100));
+        if (percent != last_percent && percent % 10 == 0) {
+            String log_msg = "OTA Progress: " + String(percent) + "%";
+            logger_log(log_msg.c_str());
+            last_percent = percent;
+        }
+    });
+    
+    ArduinoOTA.onError([](ota_error_t error) {
+        String error_msg = "OTA Error: ";
+        if (error == OTA_AUTH_ERROR) {
+            error_msg += "Auth Failed";
+        } else if (error == OTA_BEGIN_ERROR) {
+            error_msg += "Begin Failed";
+        } else if (error == OTA_CONNECT_ERROR) {
+            error_msg += "Connect Failed";
+        } else if (error == OTA_RECEIVE_ERROR) {
+            error_msg += "Receive Failed";
+        } else if (error == OTA_END_ERROR) {
+            error_msg += "End Failed";
+        }
+        logger_log(error_msg.c_str());
+    });
+    
+    ArduinoOTA.begin();
+    logger_log("OTA Ready");
+}
+
 void setup() {
     Serial.begin(115200);
     motor_shield_init();
@@ -597,11 +669,15 @@ void setup() {
     setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
     tzset();
 
+    setup_ota();
+
     setup_routes();
     server.begin();
 }
 
 void loop() {
+    ArduinoOTA.handle();
+    
     scheduler_run();
     pump_control_run();
     sensors_read();
