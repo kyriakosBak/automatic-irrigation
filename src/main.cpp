@@ -473,6 +473,98 @@ void setup_routes() {
         request->send(200, "text/plain", "All pumps stopped");
     });
     
+    // REST API: Get logs
+    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
+        int max_lines = 100;
+        if (request->hasParam("lines")) {
+            max_lines = request->getParam("lines")->value().toInt();
+            if (max_lines < 1) max_lines = 1;
+            if (max_lines > 1000) max_lines = 1000; // Limit to prevent memory issues
+        }
+        
+        String logs = logger_get_logs(max_lines);
+        if (logs.length() == 0) {
+            request->send(200, "text/plain", "No logs available");
+            return;
+        }
+        
+        // Return as JSON array for easier JavaScript parsing
+        StaticJsonDocument<4096> doc;
+        JsonArray logArray = doc.to<JsonArray>();
+        
+        // Split logs by newlines and add to array
+        int start = 0;
+        int end = logs.indexOf('\n');
+        while (end != -1 && logArray.size() < max_lines) {
+            String line = logs.substring(start, end);
+            if (line.length() > 0) {
+                logArray.add(line);
+            }
+            start = end + 1;
+            end = logs.indexOf('\n', start);
+        }
+        // Add last line if it doesn't end with newline
+        if (start < logs.length()) {
+            String line = logs.substring(start);
+            if (line.length() > 0) {
+                logArray.add(line);
+            }
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // REST API: Clear logs
+    server.on("/api/logs", HTTP_DELETE, [](AsyncWebServerRequest *request){
+        logger_clear();
+        logger_log("Logs cleared via web interface");
+        request->send(200, "text/plain", "Logs cleared successfully");
+    });
+    
+    // REST API: Download logs
+    server.on("/api/logs/download", HTTP_GET, [](AsyncWebServerRequest *request){
+        String logs = logger_get_logs(1000); // Get more lines for download
+        if (logs.length() == 0) {
+            request->send(404, "text/plain", "No logs available for download");
+            return;
+        }
+        
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", logs);
+        response->addHeader("Content-Disposition", "attachment; filename=irrigation_logs.txt");
+        request->send(response);
+    });
+    
+    // REST API: Get log info
+    server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
+        StaticJsonDocument<256> doc;
+        doc["file_size"] = logger_get_file_size();
+        
+        // Get timestamp of last log entry (approximate)
+        time_t now = time(nullptr);
+        struct tm timeinfo;
+        if (localtime_r(&now, &timeinfo)) {
+            char buf[32];
+            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+            doc["last_update"] = buf;
+        } else {
+            doc["last_update"] = "N/A";
+        }
+        
+        // Count approximate number of lines
+        String logs = logger_get_logs(10); // Sample to estimate
+        int lineCount = 0;
+        for (int i = 0; i < logs.length(); i++) {
+            if (logs[i] == '\n') lineCount++;
+        }
+        doc["sample_lines"] = lineCount;
+        
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
     // REST API: Get status
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
         StaticJsonDocument<256> doc;
