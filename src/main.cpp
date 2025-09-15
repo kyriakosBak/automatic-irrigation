@@ -518,7 +518,11 @@ void setup_routes() {
     // Logger API: Get logs
     server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
         String logs = logger_get_logs();
-        request->send(200, "application/json", "{\"logs\":\"" + logs + "\"}");
+        StaticJsonDocument<4096> doc;
+        doc["logs"] = logs;
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
     });
     
     // Logger API: Clear logs

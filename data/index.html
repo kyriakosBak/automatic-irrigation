@@ -1275,10 +1275,16 @@
       
       return apiCall('/api/logs')
         .then(r => r.json())
-        .then(logs => {
+        .then(data => {
           const container = document.getElementById('logContainer');
           const logCount = document.getElementById('logCount');
           const lastUpdate = document.getElementById('lastUpdate');
+          
+          // Parse the logs string into an array
+          let logs = [];
+          if (data.logs && data.logs.trim()) {
+            logs = data.logs.trim().split('\n').filter(line => line.trim());
+          }
           
           logEntries = logs;
           
