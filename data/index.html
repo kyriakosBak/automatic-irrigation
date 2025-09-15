@@ -475,6 +475,72 @@
     .scroll-indicator:hover {
       opacity: 1;
     }
+
+    /* Loading and error states */
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border-color);
+      border-radius: 50%;
+      border-top-color: var(--primary-color);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .error-message {
+      background: rgba(220, 38, 38, 0.1);
+      border: 1px solid var(--danger-color);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin: 0.5rem 0;
+      color: var(--danger-color);
+      font-size: 0.875rem;
+    }
+
+    .retry-button {
+      background: var(--danger-color);
+      color: white;
+      border: none;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-left: 0.5rem;
+      cursor: pointer;
+    }
+
+    .retry-button:hover {
+      background: #b91c1c;
+    }
+
+    /* Button disabled states */
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      background: var(--primary-color);
+    }
+
+    /* Tooltips */
+    [title] {
+      position: relative;
+    }
+
+    /* Better focus states */
+    input:focus, select:focus, button:focus {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    /* Smooth transitions */
+    .log-entry, .status-dot, button, input, select {
+      transition: all 0.2s ease;
+    }
     
     /* Mobile styles */
     @media (max-width: 480px) {
@@ -565,6 +631,42 @@
         grid-template-columns: 1fr;
         gap: 0.5rem;
         text-align: center;
+      }
+
+      /* Log controls mobile styles */
+      .logs-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .refresh-controls {
+        flex-wrap: nowrap;
+        justify-content: space-between;
+      }
+
+      .log-filter {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+      }
+
+      .log-filter input {
+        width: 100px;
+        font-size: 0.8rem;
+      }
+
+      .log-options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .log-option {
+        font-size: 0.8rem;
+      }
+
+      .log-container {
+        max-height: 300px;
+        font-size: 0.75rem;
       }
     }
   </style>
@@ -793,13 +895,50 @@
   <script>
     function apiCall(url, opts={}) {
       return fetch(url, opts).then(r => {
-        if (!r.ok) return r.text().then(t=>{ showError(t); throw new Error(t); });
+        if (!r.ok) {
+          return r.text().then(t => {
+            const errorMsg = t || `HTTP ${r.status}: ${r.statusText}`;
+            showError(errorMsg);
+            throw new Error(errorMsg);
+          });
+        }
         return r;
+      }).catch(error => {
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+          showError('Network error: Unable to connect to device');
+        } else if (!error.message.includes('HTTP')) {
+          showError(`Connection error: ${error.message}`);
+        }
+        throw error;
       });
     }
+
     function showError(msg) {
-      document.getElementById('error').textContent = msg;
-      setTimeout(()=>{ document.getElementById('error').textContent = ''; }, 4000);
+      const errorDiv = document.getElementById('error');
+      errorDiv.innerHTML = `
+        ${msg}
+        <button class="retry-button" onclick="window.location.reload()">Retry</button>
+      `;
+      setTimeout(() => { 
+        errorDiv.innerHTML = ''; 
+      }, 8000);
+    }
+
+    function setButtonLoading(buttonId, loading) {
+      const button = document.getElementById(buttonId);
+      if (loading) {
+        button.disabled = true;
+        button.innerHTML = '<span class="loading-spinner"></span> Loading...';
+      } else {
+        button.disabled = false;
+        // Restore original text based on button
+        const originalText = {
+          'refreshLogsBtn': '🔄 Refresh Now',
+          'clearLogsBtn': '🗑️ Clear Logs',
+          'downloadLogsBtn': '📥 Download'
+        };
+        button.innerHTML = originalText[buttonId] || button.innerHTML.replace(/<span class="loading-spinner"><\/span> Loading\.\.\./, '');
+      }
     }
     // Status polling
     function pollStatus() {
@@ -1132,6 +1271,7 @@
     
     function loadLogs() {
       updateConnectionStatus(true, true);
+      setButtonLoading('refreshLogsBtn', true);
       
       return apiCall('/api/logs')
         .then(r => r.json())
@@ -1156,9 +1296,20 @@
           
           updateConnectionStatus(true);
         })
-        .catch(() => {
+        .catch((error) => {
           updateConnectionStatus(false);
-          document.getElementById('logContainer').innerHTML = '<div class="log-empty">Failed to load logs</div>';
+          const container = document.getElementById('logContainer');
+          container.innerHTML = `
+            <div class="log-empty">
+              Failed to load logs<br>
+              <small>${error.message}</small>
+              <br><br>
+              <button class="retry-button" onclick="loadLogs()">Retry</button>
+            </div>
+          `;
+        })
+        .finally(() => {
+          setButtonLoading('refreshLogsBtn', false);
         });
     }
     
@@ -1244,17 +1395,48 @@
     
     document.getElementById('clearLogsBtn').onclick = function() {
       if (confirm('Are you sure you want to clear all logs? This cannot be undone.')) {
+        setButtonLoading('clearLogsBtn', true);
         apiCall('/api/logs', {method: 'DELETE'})
           .then(() => {
             loadLogs();
+            showSuccess('Logs cleared successfully');
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            setButtonLoading('clearLogsBtn', false);
+          });
       }
     };
     
     document.getElementById('downloadLogsBtn').onclick = function() {
-      window.open('/api/logs/download', '_blank');
+      setButtonLoading('downloadLogsBtn', true);
+      
+      // Test if logs are available before opening download
+      apiCall('/api/logs/download')
+        .then(() => {
+          window.open('/api/logs/download', '_blank');
+        })
+        .catch(() => {
+          showError('No logs available for download');
+        })
+        .finally(() => {
+          setTimeout(() => setButtonLoading('downloadLogsBtn', false), 1000);
+        });
     };
+
+    function showSuccess(msg) {
+      const errorDiv = document.getElementById('error');
+      errorDiv.style.background = 'rgba(5, 150, 105, 0.1)';
+      errorDiv.style.borderColor = 'var(--success-color)';
+      errorDiv.style.color = 'var(--success-color)';
+      errorDiv.textContent = msg;
+      setTimeout(() => { 
+        errorDiv.textContent = '';
+        errorDiv.style.background = '';
+        errorDiv.style.borderColor = '';
+        errorDiv.style.color = '';
+      }, 3000);
+    }
     
     // Log search functionality
     let searchTimeout;
@@ -1276,34 +1458,63 @@
       };
     });
     
-    // Scroll detection
+    // Scroll detection with debouncing
+    let scrollTimeout;
     document.getElementById('logContainer').onscroll = function() {
       const container = this;
-      const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
       
-      // Detect if user scrolled up
-      if (container.scrollTop < lastScrollTop && !isAtBottom) {
-        userScrolledUp = true;
-      } else if (isAtBottom) {
-        userScrolledUp = false;
-      }
-      
-      lastScrollTop = container.scrollTop;
-      updateScrollIndicator();
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+        
+        // Detect if user scrolled up
+        if (container.scrollTop < lastScrollTop && !isAtBottom) {
+          userScrolledUp = true;
+        } else if (isAtBottom) {
+          userScrolledUp = false;
+        }
+        
+        lastScrollTop = container.scrollTop;
+        updateScrollIndicator();
+      }, 100); // Debounce scroll events
     };
     
-    // Keyboard shortcuts
+    // Keyboard shortcuts with better handling
     document.onkeydown = function(e) {
-      // Only trigger if not in an input field
-      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      // Only trigger if not in an input field and no modifiers pressed
+      if (e.target.tagName !== 'INPUT' && 
+          e.target.tagName !== 'TEXTAREA' && 
+          e.target.tagName !== 'SELECT' &&
+          !e.ctrlKey && !e.metaKey && !e.altKey) {
+        
         if (e.key === 'r' || e.key === 'R') {
           e.preventDefault();
-          document.getElementById('refreshLogsBtn').click();
+          if (!document.getElementById('refreshLogsBtn').disabled) {
+            document.getElementById('refreshLogsBtn').click();
+          }
         } else if (e.key === 'c' || e.key === 'C') {
           e.preventDefault();
-          document.getElementById('clearLogsBtn').click();
+          if (!document.getElementById('clearLogsBtn').disabled) {
+            document.getElementById('clearLogsBtn').click();
+          }
+        } else if (e.key === 'Escape') {
+          // Clear search filter on Escape
+          document.getElementById('logSearchInput').value = '';
+          applyFilter();
         }
       }
+    };
+
+    // Add tooltips to controls
+    document.getElementById('refreshLogsBtn').title = 'Refresh logs now (R)';
+    document.getElementById('clearLogsBtn').title = 'Clear all logs (C)';
+    document.getElementById('downloadLogsBtn').title = 'Download logs as file';
+    document.getElementById('toggleRefresh').title = 'Start/stop auto-refresh';
+    document.getElementById('clearFilter').title = 'Clear search filter (Esc)';
+    
+    // Cleanup on page unload
+    window.onbeforeunload = function() {
+      stopAutoRefresh();
     };
     
     // Initialize logs
