@@ -1,4 +1,5 @@
 #include "scheduler.h"
+#include "logger.h"
 #include <Arduino.h>
 #include "config/config.h"
 #include <time.h>
@@ -16,7 +17,7 @@ void scheduler_init() {
     last_run = 0;
     has_run_today = false;
     configTime(0, 0, "pool.ntp.org");
-    Serial.println("Waiting for NTP time...");
+    logger_log("Scheduler initialized - waiting for NTP sync");
     time_t now = 0;
     int retries = 0;
     while (now < 8 * 3600 * 2 && retries < 20) {
@@ -25,9 +26,9 @@ void scheduler_init() {
         retries++;
     }
     if (now < 8 * 3600 * 2) {
-        Serial.println("NTP time not set, scheduling may be inaccurate");
+        logger_log("WARNING: NTP sync failed - scheduling may be inaccurate");
     } else {
-        Serial.println("NTP time set");
+        logger_log("NTP time synchronized successfully");
     }
 }
 
@@ -35,12 +36,14 @@ void scheduler_run() {
     time_t now = time(nullptr);
     struct tm timeinfo;
     if (!localtime_r(&now, &timeinfo)) {
-        Serial.println("Failed to obtain time");
+        logger_log("ERROR: Failed to get current time for scheduling");
         return;
     }
     int hour = timeinfo.tm_hour;
     int min = timeinfo.tm_min;
     if (hour == schedule_hour && min == schedule_minute && !has_run_today) {
+        String log_msg = "Scheduled watering triggered at " + String(hour) + ":" + String(min);
+        logger_log(log_msg.c_str());
         trigger_dosing();
         has_run_today = true;
         last_run = millis();

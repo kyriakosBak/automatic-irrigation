@@ -1,5 +1,6 @@
 #include "pump_control.h"
 #include "motor_shield_control.h"
+#include "logger.h"
 #include <Arduino.h>
 #include "config/config.h"
 #include <time.h>
@@ -56,10 +57,11 @@ bool is_watering_enabled_today() {
 void start_fertilizer_dosing() {
     // Check if watering is enabled for today
     if (!is_watering_enabled_today()) {
-        Serial.println("[DEBUG] Watering is disabled for today - skipping dosing");
+        logger_log("Fertilizer dosing skipped - watering disabled for today");
         return;
     }
     
+    logger_log("Fertilizer dosing sequence started");
     dosing_stage = 0;
     float current_ml = get_current_dosing_ml(0);
     dosing_end_time = millis() + ml_to_runtime(0, current_ml);
@@ -69,11 +71,11 @@ void start_fertilizer_dosing() {
         set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
         run_motor_forward(1);
         pump_running[0] = true;
-        Serial.print("[DEBUG] Pump 0: OPEN (dosing started, ");
-        Serial.print(current_ml);
-        Serial.println(" ml)");
+        
+        String log_msg = "Fertilizer pump 0 started - dosing " + String(current_ml) + " ml";
+        logger_log(log_msg.c_str());
     } else {
-        Serial.println("[DEBUG] Pump 0: SKIP (dosing amount is 0 ml)");
+        logger_log("Fertilizer pump 0 skipped - dosing amount is 0 ml");
     }
 }
 
@@ -83,16 +85,16 @@ void pump_control_run_humidifier_pump(unsigned long ms) {
     run_motor_forward(humidifier_motor);
     humidifier_pump_active = true;
     humidifier_pump_end_time = millis() + ms;
-    Serial.print("[DEBUG] Humidifier pump: OPEN (run for ");
-    Serial.print(ms);
-    Serial.println(" ms)");
+    
+    String log_msg = "Humidifier pump started - running for " + String(ms) + " ms";
+    logger_log(log_msg.c_str());
 }
 
 void pump_control_stop_humidifier_pump() {
     int humidifier_motor = HUMIDIFIER_PUMP_CHANNEL;  // Motor 7 for humidifier pump
     stop_motor(humidifier_motor);
     humidifier_pump_active = false;
-    Serial.println("[DEBUG] Humidifier pump: CLOSED");
+    logger_log("Humidifier pump stopped");
 }
 
 void pump_control_run_watering_pump(unsigned long ms) {
@@ -101,16 +103,16 @@ void pump_control_run_watering_pump(unsigned long ms) {
     run_motor_forward(watering_motor);
     watering_pump_active = true;
     watering_pump_end_time = millis() + ms;
-    Serial.print("[DEBUG] Watering pump: OPEN (run for ");
-    Serial.print(ms);
-    Serial.println(" ms)");
+    
+    String log_msg = "Watering pump started - running for " + String(ms) + " ms";
+    logger_log(log_msg.c_str());
 }
 
 void pump_control_stop_watering_pump() {
     int watering_motor = WATERING_PUMP_CHANNEL;  // Motor 6 for watering pump
     stop_motor(watering_motor);
     watering_pump_active = false;
-    Serial.println("[DEBUG] Watering pump: CLOSED");
+    logger_log("Watering pump stopped");
 }
 
 void pump_control_init() {
@@ -141,9 +143,10 @@ void pump_control_run() {
         if (millis() > dosing_end_time) {
             int motor_num = dosing_stage + 1;  // Convert pump index to motor number (1-5)
             stop_motor(motor_num);
-            Serial.print("[DEBUG] Pump ");
-            Serial.print(dosing_stage);
-            Serial.println(": CLOSED (dosing complete)");
+            
+            String log_msg = "Fertilizer pump " + String(dosing_stage) + " completed";
+            logger_log(log_msg.c_str());
+            
             pump_running[dosing_stage] = false;
             dosing_stage++;
             if (dosing_stage < NUM_FERTILIZERS) {
@@ -156,19 +159,17 @@ void pump_control_run() {
                     set_motor_speed(motor_num, fertilizer_motor_speed);
                     run_motor_forward(motor_num);
                     pump_running[dosing_stage] = true;
-                    Serial.print("[DEBUG] Pump ");
-                    Serial.print(dosing_stage);
-                    Serial.print(": OPEN (dosing started, ");
-                    Serial.print(current_ml);
-                    Serial.println(" ml)");
+                    
+                    String log_msg = "Fertilizer pump " + String(dosing_stage) + " started - dosing " + String(current_ml) + " ml";
+                    logger_log(log_msg.c_str());
                 } else {
-                    Serial.print("[DEBUG] Pump ");
-                    Serial.print(dosing_stage);
-                    Serial.println(": SKIP (dosing amount is 0 ml)");
+                    
+                    String log_msg = "Fertilizer pump " + String(dosing_stage) + " skipped - dosing amount is 0 ml";
+                    logger_log(log_msg.c_str());
                 }
             } else {
                 dosing_stage = -1; // Done
-                Serial.println("[DEBUG] All fertilizer dosing complete");
+                logger_log("All fertilizer dosing complete");
             }
         }
         return;

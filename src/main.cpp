@@ -49,7 +49,7 @@ void init_weekly_dosing() {
 void load_settings() {
     File f = filesystem.open("/settings.json", "r");
     if (!f) {
-        Serial.println("No settings file, using defaults");
+        logger_log("No settings file, using defaults");
         init_weekly_dosing();
         return;
     }
@@ -57,7 +57,7 @@ void load_settings() {
     DeserializationError err = deserializeJson(doc, f);
     f.close();
     if (err) {
-        Serial.println("Failed to parse settings.json, using defaults");
+        logger_log("Failed to parse settings.json, using defaults");
         init_weekly_dosing();
         return;
     }
@@ -108,7 +108,7 @@ void load_settings() {
         fertilizer_motor_speed = doc["fertilizer_motor_speed"].as<int>();
     if (doc["watering_duration_ms"].is<unsigned long>())
         watering_duration_ms = doc["watering_duration_ms"].as<unsigned long>();
-    Serial.println("Settings loaded from LittleFS");
+    logger_log("Settings loaded from LittleFS");
 }
 
 void save_settings() {
@@ -137,12 +137,12 @@ void save_settings() {
     doc["watering_duration_ms"] = watering_duration_ms;
     File f = filesystem.open("/settings.json", "w");
     if (!f) {
-        Serial.println("Failed to open settings.json for writing");
+        logger_log("Failed to open settings.json for writing");
         return;
     }
     serializeJson(doc, f);
     f.close();
-    Serial.println("Settings saved to LittleFS");
+    logger_log("Settings saved to LittleFS");
 }
 
 bool load_wifi_credentials() {
@@ -168,8 +168,8 @@ void trigger_dosing() {
 void start_ap_mode() {
     WiFi.softAP("IrrigationSetup");
     IPAddress IP = WiFi.softAPIP();
-    Serial.print("AP IP address: ");
-    Serial.println(IP);
+    String log_msg = "AP mode started - IP: " + IP.toString();
+    logger_log(log_msg.c_str());
     server.on("/wifi", HTTP_GET, [](AsyncWebServerRequest *request){
         String html = "<form method='POST'><label>SSID: <input name='ssid'></label><br><label>Password: <input name='password' type='password'></label><br><button type='submit'>Save</button></form>";
         request->send(200, "text/html", html);
@@ -212,7 +212,6 @@ static WateringState watering_state = IDLE;
 
 void start_watering_sequence() {
     if (watering_state == IDLE) {
-        logger_log("Starting watering sequence");
         start_fertilizer_dosing();
         watering_state = DOSING;
     }
@@ -473,98 +472,6 @@ void setup_routes() {
         request->send(200, "text/plain", "All pumps stopped");
     });
     
-    // REST API: Get logs
-    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
-        int max_lines = 100;
-        if (request->hasParam("lines")) {
-            max_lines = request->getParam("lines")->value().toInt();
-            if (max_lines < 1) max_lines = 1;
-            if (max_lines > 1000) max_lines = 1000; // Limit to prevent memory issues
-        }
-        
-        String logs = logger_get_logs(max_lines);
-        if (logs.length() == 0) {
-            request->send(200, "text/plain", "No logs available");
-            return;
-        }
-        
-        // Return as JSON array for easier JavaScript parsing
-        StaticJsonDocument<4096> doc;
-        JsonArray logArray = doc.to<JsonArray>();
-        
-        // Split logs by newlines and add to array
-        int start = 0;
-        int end = logs.indexOf('\n');
-        while (end != -1 && logArray.size() < max_lines) {
-            String line = logs.substring(start, end);
-            if (line.length() > 0) {
-                logArray.add(line);
-            }
-            start = end + 1;
-            end = logs.indexOf('\n', start);
-        }
-        // Add last line if it doesn't end with newline
-        if (start < logs.length()) {
-            String line = logs.substring(start);
-            if (line.length() > 0) {
-                logArray.add(line);
-            }
-        }
-        
-        String response;
-        serializeJson(doc, response);
-        request->send(200, "application/json", response);
-    });
-    
-    // REST API: Clear logs
-    server.on("/api/logs", HTTP_DELETE, [](AsyncWebServerRequest *request){
-        logger_clear();
-        logger_log("Logs cleared via web interface");
-        request->send(200, "text/plain", "Logs cleared successfully");
-    });
-    
-    // REST API: Download logs
-    server.on("/api/logs/download", HTTP_GET, [](AsyncWebServerRequest *request){
-        String logs = logger_get_logs(1000); // Get more lines for download
-        if (logs.length() == 0) {
-            request->send(404, "text/plain", "No logs available for download");
-            return;
-        }
-        
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", logs);
-        response->addHeader("Content-Disposition", "attachment; filename=irrigation_logs.txt");
-        request->send(response);
-    });
-    
-    // REST API: Get log info
-    server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<256> doc;
-        doc["file_size"] = logger_get_file_size();
-        
-        // Get timestamp of last log entry (approximate)
-        time_t now = time(nullptr);
-        struct tm timeinfo;
-        if (localtime_r(&now, &timeinfo)) {
-            char buf[32];
-            strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
-            doc["last_update"] = buf;
-        } else {
-            doc["last_update"] = "N/A";
-        }
-        
-        // Count approximate number of lines
-        String logs = logger_get_logs(10); // Sample to estimate
-        int lineCount = 0;
-        for (int i = 0; i < logs.length(); i++) {
-            if (logs[i] == '\n') lineCount++;
-        }
-        doc["sample_lines"] = lineCount;
-        
-        String response;
-        serializeJson(doc, response);
-        request->send(200, "application/json", response);
-    });
-    
     // REST API: Get status
     server.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *request){
         StaticJsonDocument<256> doc;
@@ -593,6 +500,35 @@ void setup_routes() {
         request->send(200, "application/json", response);
     });
     
+    // Logger API: Get logs
+    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
+        String logs = logger_get_logs();
+        request->send(200, "application/json", "{\"logs\":\"" + logs + "\"}");
+    });
+    
+    // Logger API: Clear logs
+    server.on("/api/logs", HTTP_DELETE, [](AsyncWebServerRequest *request){
+        logger_clear();
+        request->send(200, "text/plain", "Logs cleared");
+    });
+    
+    // Logger API: Download logs
+    server.on("/api/logs/download", HTTP_GET, [](AsyncWebServerRequest *request){
+        String logs = logger_get_logs();
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", logs);
+        response->addHeader("Content-Disposition", "attachment; filename=irrigation_logs.txt");
+        request->send(response);
+    });
+    
+    // Logger API: Get log info
+    server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
+        StaticJsonDocument<128> doc;
+        doc["current_file_size"] = logger_get_file_size();
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
     // Serve web page
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(filesystem, "/index.html", "text/html");
@@ -601,7 +537,7 @@ void setup_routes() {
 
 void sync_ntp() {
     configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    Serial.println("Waiting for NTP sync...");
+    logger_log("Waiting for NTP sync...");
     time_t now = 0;
     int retries = 0;
     while (now < 8 * 3600 * 2 && retries < 30) {
@@ -610,10 +546,10 @@ void sync_ntp() {
         retries++;
     }
     if (now < 8 * 3600 * 2) {
-        Serial.println("NTP sync failed");
+        logger_log("NTP sync failed");
         ntp_synced = false;
     } else {
-        Serial.println("NTP sync successful");
+        logger_log("NTP sync successful");
         ntp_synced = true;
     }
 }
@@ -625,14 +561,11 @@ void setup() {
     valve_control_init();
     scheduler_init();
     sensors_init();
+    logger_init();
 
     if (!LittleFS.begin()) {
-        Serial.println("LittleFS Mount Failed");
+        logger_log("LittleFS Mount Failed");
     }
-    
-    logger_init();
-    logger_log("Irrigation system started");
-    
     init_weekly_dosing(); // Initialize with defaults first
     load_settings();       // Then load from file if available
 
@@ -642,19 +575,16 @@ void setup() {
         unsigned long start = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
             delay(500);
-            Serial.print(".");
         }
         if (WiFi.status() == WL_CONNECTED) {
-            Serial.println("\nWiFi connected");
-            Serial.println(WiFi.localIP());
-            logger_log("WiFi connected successfully");
+            String log_msg = "WiFi connected - IP: " + WiFi.localIP().toString();
+            logger_log(log_msg.c_str());
             wifi_ok = true;
         } else {
-            Serial.println("\nWiFi connect failed");
-            logger_log("WiFi connection failed");
+            logger_log("WiFi connect failed");
         }
     } else {
-        Serial.println("No WiFi credentials found in LittleFS, starting AP mode");
+        logger_log("No WiFi credentials found in LittleFS, starting AP mode");
     }
     if (!wifi_ok) {
         start_ap_mode();
@@ -698,23 +628,25 @@ void loop() {
                     valve_control_stop_main_tank();
                     filling = false;
                     watering_state = FILLED;
-                    Serial.println("[SAFETY] Main tank fill timeout reached, valve closed.");
+                    logger_log("[SAFETY] Main tank fill timeout reached, valve closed");
                 }
             } else {
                 watering_state = FILLED;
             }
             break;
-        case FILLED:
+        case FILLED: {
             // Start watering pump for configured time after tank is filled
             pump_control_run_watering_pump(watering_duration_ms);
             watering_state = WATERING;
-            Serial.println("[DEBUG] Tank filled - starting watering pump for configured time");
+            String log_msg = "[DEBUG] Tank filled - starting watering pump for " + String(watering_duration_ms) + "ms";
+            logger_log(log_msg.c_str());
             break;
+        }
         case WATERING:
             // Wait for watering to complete (pump will stop automatically)
             if (!watering_pump_active) {
                 watering_state = IDLE;
-                Serial.println("[DEBUG] Watering complete - sequence finished");
+                logger_log("[DEBUG] Watering complete - sequence finished");
             }
             break;
     }

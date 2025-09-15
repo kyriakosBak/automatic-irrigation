@@ -1,4 +1,5 @@
 #include "motor_shield_control.h"
+#include "logger.h"
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 
@@ -16,12 +17,13 @@ void motor_shield_init() {
     bool shield2_ok = motor_shield2.begin();
 
     if (!shield1_ok) {
-        Serial.println("ERROR: Could not find Motor Shield 1 (0x60). Check wiring.");
+        logger_log("ERROR: Motor Shield 1 (0x60) not found - check wiring");
     }
     if (!shield2_ok) {
-        Serial.println("ERROR: Could not find Motor Shield 2 (0x70). Check wiring.");
+        logger_log("ERROR: Motor Shield 2 (0x61) not found - check wiring");
     }
     if (!shield1_ok && !shield2_ok) {
+        logger_log("FATAL: No motor shields found - system cannot operate");
         return;
     }
 
@@ -40,7 +42,7 @@ void motor_shield_init() {
         }
     }
 
-    Serial.println("Motor shields initialized");
+    logger_log("Motor shields initialized successfully");
 }
 
 void set_motor_speed(int motor_number, int speed) {
@@ -56,6 +58,9 @@ void set_motor_speed(int motor_number, int speed) {
         motors[motor_index]->setSpeed(speed);
         // Add delay to ensure I2C command is processed
         delay(50);
+        
+        String log_msg = "Motor " + String(motor_number) + " speed set to " + String(speed);
+        logger_log(log_msg.c_str());
     }
 }
 
@@ -69,6 +74,9 @@ void run_motor_forward(int motor_number) {
         motors[motor_index]->run(FORWARD);
         // Add delay to ensure I2C command is processed
         delay(50);
+        
+        String log_msg = "Motor " + String(motor_number) + " started";
+        logger_log(log_msg.c_str());
     }
 }
 
@@ -82,10 +90,14 @@ void stop_motor(int motor_number) {
         motors[motor_index]->run(RELEASE);
         // Add delay to ensure I2C command is processed
         delay(50);
+        
+        String log_msg = "Motor " + String(motor_number) + " stopped";
+        logger_log(log_msg.c_str());
     }
 }
 
 void stop_all_motors() {
+    logger_log("Stopping all motors");
     for (int i = 0; i < 7; i++) {
         if (motors[i]) {
             motors[i]->run(RELEASE);
