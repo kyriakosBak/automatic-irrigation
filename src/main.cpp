@@ -18,6 +18,7 @@ fs::FS &filesystem = LittleFS;
 // Function declarations
 void setup_routes();
 void start_watering_sequence();
+void save_settings();
 
 // Dosing settings (ml per fertilizer) - now per day of week
 float weekly_dosing_ml[7][NUM_FERTILIZERS]; // [day_of_week][fertilizer_index]
@@ -49,8 +50,9 @@ void init_weekly_dosing() {
 void load_settings() {
     File f = filesystem.open("/settings.json", "r");
     if (!f) {
-        logger_log("No settings file, using defaults");
+        logger_log("No settings file found, creating with defaults");
         init_weekly_dosing();
+        save_settings(); // Create the file with default values
         return;
     }
     StaticJsonDocument<1024> doc;
