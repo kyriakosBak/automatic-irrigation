@@ -340,6 +340,38 @@
       background: var(--card-background);
     }
 
+    .log-filter {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .log-filter input {
+      width: 150px;
+      padding: 0.5rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 0.875rem;
+    }
+
+    .log-options {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .log-option {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      font-size: 0.875rem;
+    }
+
+    .log-option input[type="checkbox"] {
+      margin: 0;
+    }
+
     .log-container {
       background: #1e1e1e;
       color: #f0f0f0;
@@ -351,6 +383,7 @@
       overflow-y: auto;
       line-height: 1.4;
       border: 1px solid var(--border-color);
+      position: relative;
     }
 
     .log-entry {
@@ -358,8 +391,20 @@
       word-wrap: break-word;
     }
 
+    .log-entry.filtered {
+      display: none;
+    }
+
+    .log-entry.highlight {
+      background-color: rgba(255, 255, 0, 0.2);
+    }
+
     .log-timestamp {
       color: #888;
+    }
+
+    .log-timestamp.hidden {
+      display: none;
     }
 
     .log-message {
@@ -392,11 +437,43 @@
       background: var(--danger-color);
     }
 
+    .status-dot.loading {
+      background: var(--warning-color);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
     .log-empty {
       text-align: center;
       color: var(--text-secondary);
       padding: 2rem;
       font-style: italic;
+    }
+
+    .scroll-indicator {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--primary-color);
+      color: white;
+      padding: 0.5rem;
+      border-radius: 50%;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 10;
+    }
+
+    .scroll-indicator.visible {
+      opacity: 0.8;
+    }
+
+    .scroll-indicator:hover {
+      opacity: 1;
     }
     
     /* Mobile styles */
@@ -673,18 +750,44 @@
         <label>Auto-refresh:</label>
         <select id="refreshInterval">
           <option value="0">Off</option>
+          <option value="1">1 second</option>
           <option value="5">5 seconds</option>
           <option value="10" selected>10 seconds</option>
           <option value="30">30 seconds</option>
+          <option value="60">1 minute</option>
         </select>
         <button type="button" id="toggleRefresh">⏸️ Stop</button>
+      </div>
+      <div class="log-filter">
+        <label>Filter:</label>
+        <input type="text" id="logSearchInput" placeholder="Search logs...">
+        <button type="button" id="clearFilter">✕</button>
       </div>
       <button type="button" id="refreshLogsBtn">🔄 Refresh Now</button>
       <button type="button" id="clearLogsBtn" class="danger">🗑️ Clear Logs</button>
       <button type="button" id="downloadLogsBtn" class="secondary">📥 Download</button>
     </div>
+    <div class="log-options">
+      <div class="log-option">
+        <input type="checkbox" id="showTimestamps" checked>
+        <label for="showTimestamps">Show timestamps</label>
+      </div>
+      <div class="log-option">
+        <input type="checkbox" id="autoScroll" checked>
+        <label for="autoScroll">Auto-scroll to bottom</label>
+      </div>
+      <div class="log-option">
+        <input type="checkbox" id="reverseOrder">
+        <label for="reverseOrder">Newest first</label>
+      </div>
+      <div class="log-option">
+        <input type="checkbox" id="pauseOnScroll" checked>
+        <label for="pauseOnScroll">Pause when scrolling up</label>
+      </div>
+    </div>
     <div class="log-container" id="logContainer">
       <div class="log-empty">Loading logs...</div>
+      <div class="scroll-indicator" id="scrollToBottom" title="Scroll to bottom">⬇</div>
     </div>
   </div>
   <script>
@@ -937,12 +1040,21 @@
     // Logs functionality
     let logRefreshInterval = null;
     let isRefreshing = true;
+    let userScrolledUp = false;
+    let lastScrollTop = 0;
+    let logEntries = [];
+    let filterText = '';
     
-    function updateConnectionStatus(connected) {
+    function updateConnectionStatus(connected, loading = false) {
       const statusDot = document.getElementById('connectionStatus');
       const statusText = document.getElementById('connectionText');
-      if (connected) {
-        statusDot.classList.remove('disconnected');
+      
+      statusDot.classList.remove('disconnected', 'loading');
+      
+      if (loading) {
+        statusDot.classList.add('loading');
+        statusText.textContent = 'Loading...';
+      } else if (connected) {
         statusText.textContent = 'Connected';
       } else {
         statusDot.classList.add('disconnected');
@@ -950,17 +1062,77 @@
       }
     }
     
-    function formatLogEntry(logLine) {
+    function formatLogEntry(logLine, index) {
       // Parse log format: [2025-09-15 14:32:15] Message
       const match = logLine.match(/^(\[.+?\])\s*(.*)$/);
+      const showTimestamps = document.getElementById('showTimestamps').checked;
+      const isFiltered = filterText && !logLine.toLowerCase().includes(filterText.toLowerCase());
+      const isHighlighted = filterText && logLine.toLowerCase().includes(filterText.toLowerCase()) && filterText.length > 0;
+      
+      let html = '<div class="log-entry' + (isFiltered ? ' filtered' : '') + (isHighlighted ? ' highlight' : '') + '">';
+      
       if (match) {
-        return `<div class="log-entry"><span class="log-timestamp">${match[1]}</span> <span class="log-message">${match[2]}</span></div>`;
+        html += '<span class="log-timestamp' + (showTimestamps ? '' : ' hidden') + '">' + match[1] + '</span> ';
+        html += '<span class="log-message">' + escapeHtml(match[2]) + '</span>';
       } else {
-        return `<div class="log-entry"><span class="log-message">${logLine}</span></div>`;
+        html += '<span class="log-message">' + escapeHtml(logLine) + '</span>';
+      }
+      
+      html += '</div>';
+      return html;
+    }
+    
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+    
+    function applyLogOptions() {
+      const container = document.getElementById('logContainer');
+      const reverseOrder = document.getElementById('reverseOrder').checked;
+      const showTimestamps = document.getElementById('showTimestamps').checked;
+      
+      // Re-render all entries with current options
+      let displayEntries = [...logEntries];
+      if (reverseOrder) {
+        displayEntries.reverse();
+      }
+      
+      container.innerHTML = displayEntries.map(formatLogEntry).join('');
+      
+      // Add scroll indicator
+      container.innerHTML += '<div class="scroll-indicator" id="scrollToBottom" title="Scroll to bottom">⬇</div>';
+      
+      // Re-attach scroll to bottom handler
+      document.getElementById('scrollToBottom').onclick = function() {
+        container.scrollTop = container.scrollHeight;
+        updateScrollIndicator();
+      };
+      
+      // Apply auto-scroll if enabled and user hasn't scrolled up
+      if (document.getElementById('autoScroll').checked && !userScrolledUp) {
+        setTimeout(() => {
+          container.scrollTop = container.scrollHeight;
+        }, 50);
+      }
+      
+      updateScrollIndicator();
+    }
+    
+    function updateScrollIndicator() {
+      const container = document.getElementById('logContainer');
+      const scrollIndicator = document.getElementById('scrollToBottom');
+      const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+      
+      if (scrollIndicator) {
+        scrollIndicator.classList.toggle('visible', !isAtBottom && logEntries.length > 0);
       }
     }
     
     function loadLogs() {
+      updateConnectionStatus(true, true);
+      
       return apiCall('/api/logs')
         .then(r => r.json())
         .then(logs => {
@@ -968,15 +1140,14 @@
           const logCount = document.getElementById('logCount');
           const lastUpdate = document.getElementById('lastUpdate');
           
+          logEntries = logs;
+          
           if (logs.length === 0) {
             container.innerHTML = '<div class="log-empty">No logs available</div>';
             logCount.textContent = '0';
           } else {
-            container.innerHTML = logs.map(formatLogEntry).join('');
             logCount.textContent = logs.length;
-            
-            // Auto-scroll to bottom
-            container.scrollTop = container.scrollHeight;
+            applyLogOptions();
           }
           
           // Update last refresh time
@@ -996,7 +1167,12 @@
       stopAutoRefresh();
       
       if (interval > 0) {
-        logRefreshInterval = setInterval(loadLogs, interval);
+        logRefreshInterval = setInterval(() => {
+          const pauseOnScroll = document.getElementById('pauseOnScroll').checked;
+          if (!pauseOnScroll || !userScrolledUp) {
+            loadLogs();
+          }
+        }, interval);
         isRefreshing = true;
         document.getElementById('toggleRefresh').textContent = '⏸️ Stop';
       } else {
@@ -1015,13 +1191,40 @@
       }
     }
     
-    // Load saved refresh interval preference
+    function applyFilter() {
+      filterText = document.getElementById('logSearchInput').value.trim();
+      applyLogOptions();
+      
+      // Update log count for filtered results
+      const visibleCount = document.querySelectorAll('.log-entry:not(.filtered)').length;
+      const totalCount = logEntries.length;
+      
+      if (filterText) {
+        document.getElementById('logCount').textContent = visibleCount + ' / ' + totalCount;
+      } else {
+        document.getElementById('logCount').textContent = totalCount.toString();
+      }
+    }
+    
+    // Load saved preferences
     const savedInterval = localStorage.getItem('logRefreshInterval');
     if (savedInterval) {
       document.getElementById('refreshInterval').value = savedInterval;
     }
     
-    // Log control event handlers
+    const savedOptions = {
+      showTimestamps: localStorage.getItem('showTimestamps') !== 'false',
+      autoScroll: localStorage.getItem('autoScroll') !== 'false',
+      reverseOrder: localStorage.getItem('reverseOrder') === 'true',
+      pauseOnScroll: localStorage.getItem('pauseOnScroll') !== 'false'
+    };
+    
+    Object.keys(savedOptions).forEach(option => {
+      const element = document.getElementById(option);
+      if (element) element.checked = savedOptions[option];
+    });
+    
+    // Event handlers
     document.getElementById('refreshInterval').onchange = startAutoRefresh;
     
     document.getElementById('toggleRefresh').onclick = function() {
@@ -1036,6 +1239,7 @@
     
     document.getElementById('refreshLogsBtn').onclick = function() {
       loadLogs();
+      userScrolledUp = false; // Reset scroll state on manual refresh
     };
     
     document.getElementById('clearLogsBtn').onclick = function() {
@@ -1050,6 +1254,56 @@
     
     document.getElementById('downloadLogsBtn').onclick = function() {
       window.open('/api/logs/download', '_blank');
+    };
+    
+    // Log search functionality
+    let searchTimeout;
+    document.getElementById('logSearchInput').oninput = function() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(applyFilter, 300); // Debounce search
+    };
+    
+    document.getElementById('clearFilter').onclick = function() {
+      document.getElementById('logSearchInput').value = '';
+      applyFilter();
+    };
+    
+    // Log option checkboxes
+    ['showTimestamps', 'autoScroll', 'reverseOrder', 'pauseOnScroll'].forEach(option => {
+      document.getElementById(option).onchange = function() {
+        localStorage.setItem(option, this.checked);
+        applyLogOptions();
+      };
+    });
+    
+    // Scroll detection
+    document.getElementById('logContainer').onscroll = function() {
+      const container = this;
+      const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+      
+      // Detect if user scrolled up
+      if (container.scrollTop < lastScrollTop && !isAtBottom) {
+        userScrolledUp = true;
+      } else if (isAtBottom) {
+        userScrolledUp = false;
+      }
+      
+      lastScrollTop = container.scrollTop;
+      updateScrollIndicator();
+    };
+    
+    // Keyboard shortcuts
+    document.onkeydown = function(e) {
+      // Only trigger if not in an input field
+      if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        if (e.key === 'r' || e.key === 'R') {
+          e.preventDefault();
+          document.getElementById('refreshLogsBtn').click();
+        } else if (e.key === 'c' || e.key === 'C') {
+          e.preventDefault();
+          document.getElementById('clearLogsBtn').click();
+        }
+      }
     };
     
     // Initialize logs
