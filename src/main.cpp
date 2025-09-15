@@ -7,6 +7,7 @@
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
+#include <Preferences.h>
 
 #include <LittleFS.h>
 fs::FS &filesystem = LittleFS;
@@ -14,6 +15,8 @@ fs::FS &filesystem = LittleFS;
 #include <ArduinoJson.h>
 #include "config/config.h"
 #include <time.h>
+
+Preferences preferences;
 
 // Function declarations
 void setup_routes();
@@ -48,103 +51,64 @@ void init_weekly_dosing() {
 }
 
 void load_settings() {
-    File f = filesystem.open("/settings.json", "r");
-    if (!f) {
-        logger_log("No settings file found, creating with defaults");
-        init_weekly_dosing();
-        save_settings(); // Create the file with default values
-        return;
-    }
-    StaticJsonDocument<1024> doc;
-    DeserializationError err = deserializeJson(doc, f);
-    f.close();
-    if (err) {
-        logger_log("Failed to parse settings.json, using defaults");
-        init_weekly_dosing();
-        return;
-    }
+    preferences.begin("irrigation", false); // Open in read-write mode
+    
+    // Initialize with defaults first
+    init_weekly_dosing();
     
     // Load weekly dosing schedule
-    if (doc["weekly_dosing"].is<JsonArray>()) {
-        JsonArray weekly = doc["weekly_dosing"];
-        for (int day = 0; day < 7 && day < weekly.size(); day++) {
-            if (weekly[day].is<JsonArray>()) {
-                JsonArray day_dosing = weekly[day];
-                for (int fert = 0; fert < NUM_FERTILIZERS && fert < day_dosing.size(); fert++) {
-                    if (day_dosing[fert].is<float>()) {
-                        weekly_dosing_ml[day][fert] = day_dosing[fert].as<float>();
-                    }
-                }
-            }
+    for (int day = 0; day < 7; day++) {
+        for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
+            String key = "dose_" + String(day) + "_" + String(fert);
+            weekly_dosing_ml[day][fert] = preferences.getFloat(key.c_str(), 1.0);
         }
-    } else {
-        // Fallback: try to load old single dosing format
-        init_weekly_dosing();
-        for (int i = 0; i < NUM_FERTILIZERS; i++) {
-            if (doc["dosing"][i].is<float>()) {
-                float old_value = doc["dosing"][i].as<float>();
-                // Apply the old value to all days
-                for (int day = 0; day < 7; day++) {
-                    weekly_dosing_ml[day][i] = old_value;
-                }
-            }
-        }
+        String enabled_key = "water_" + String(day);
+        weekly_watering_enabled[day] = preferences.getBool(enabled_key.c_str(), true);
     }
     
-    // Load weekly watering enabled settings
-    if (doc["weekly_watering_enabled"].is<JsonArray>()) {
-        JsonArray weekly_enabled = doc["weekly_watering_enabled"];
-        for (int day = 0; day < 7 && day < weekly_enabled.size(); day++) {
-            if (weekly_enabled[day].is<bool>()) {
-                weekly_watering_enabled[day] = weekly_enabled[day].as<bool>();
-            }
-        }
+    // Load other settings
+    schedule_hour = preferences.getInt("sched_hour", 8);
+    schedule_minute = preferences.getInt("sched_min", 0);
+    
+    for (int i = 0; i < NUM_FERTILIZERS; i++) {
+        String cal_key = "cal_" + String(i);
+        pump_calibration[i] = preferences.getFloat(cal_key.c_str(), 1.0);
     }
     
-    if (doc["schedule"]["hour"].is<int>())
-        schedule_hour = doc["schedule"]["hour"].as<int>();
-    if (doc["schedule"]["minute"].is<int>())
-        schedule_minute = doc["schedule"]["minute"].as<int>();
-    for (int i = 0; i < NUM_FERTILIZERS; i++) pump_calibration[i] = doc["calibration"][i].as<float>();
-    if (doc["fertilizer_motor_speed"].is<int>())
-        fertilizer_motor_speed = doc["fertilizer_motor_speed"].as<int>();
-    if (doc["watering_duration_ms"].is<unsigned long>())
-        watering_duration_ms = doc["watering_duration_ms"].as<unsigned long>();
-    logger_log("Settings loaded from LittleFS");
+    fertilizer_motor_speed = preferences.getInt("fert_speed", 200);
+    watering_duration_ms = preferences.getULong("water_dur", MAX_WATERING_TIME_MS);
+    
+    preferences.end();
+    logger_log("Settings loaded from NVS");
 }
 
 void save_settings() {
-    StaticJsonDocument<1024> doc;
+    preferences.begin("irrigation", false); // Open in read-write mode
     
     // Save weekly dosing schedule
-    JsonArray weekly = doc.createNestedArray("weekly_dosing");
     for (int day = 0; day < 7; day++) {
-        JsonArray day_dosing = weekly.createNestedArray();
         for (int fert = 0; fert < NUM_FERTILIZERS; fert++) {
-            day_dosing.add(weekly_dosing_ml[day][fert]);
+            String key = "dose_" + String(day) + "_" + String(fert);
+            preferences.putFloat(key.c_str(), weekly_dosing_ml[day][fert]);
         }
+        String enabled_key = "water_" + String(day);
+        preferences.putBool(enabled_key.c_str(), weekly_watering_enabled[day]);
     }
     
-    // Save weekly watering enabled settings
-    JsonArray weekly_enabled = doc.createNestedArray("weekly_watering_enabled");
-    for (int day = 0; day < 7; day++) {
-        weekly_enabled.add(weekly_watering_enabled[day]);
+    // Save other settings
+    preferences.putInt("sched_hour", schedule_hour);
+    preferences.putInt("sched_min", schedule_minute);
+    
+    for (int i = 0; i < NUM_FERTILIZERS; i++) {
+        String cal_key = "cal_" + String(i);
+        preferences.putFloat(cal_key.c_str(), pump_calibration[i]);
     }
     
-    doc["schedule"]["hour"] = schedule_hour;
-    doc["schedule"]["minute"] = schedule_minute;
-    doc["calibration"] = JsonArray();
-    for (int i = 0; i < NUM_FERTILIZERS; i++) doc["calibration"].add(pump_calibration[i]);
-    doc["fertilizer_motor_speed"] = fertilizer_motor_speed;
-    doc["watering_duration_ms"] = watering_duration_ms;
-    File f = filesystem.open("/settings.json", "w");
-    if (!f) {
-        logger_log("Failed to open settings.json for writing");
-        return;
-    }
-    serializeJson(doc, f);
-    f.close();
-    logger_log("Settings saved to LittleFS");
+    preferences.putInt("fert_speed", fertilizer_motor_speed);
+    preferences.putULong("water_dur", watering_duration_ms);
+    
+    preferences.end();
+    logger_log("Settings saved to NVS");
 }
 
 bool load_wifi_credentials() {
