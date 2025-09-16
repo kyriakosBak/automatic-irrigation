@@ -250,6 +250,23 @@
       border-radius: 4px;
     }
     
+    .column-set-btn {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.4rem;
+      margin-top: 0.25rem;
+      min-height: 20px;
+      background: var(--secondary-color);
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+    }
+    
+    .column-set-btn:hover {
+      background: #475569;
+    }
+    
     .control-group {
       display: flex;
       gap: 0.5rem;
@@ -609,6 +626,12 @@
         font-size: 0.7rem;
       }
       
+      .column-set-btn {
+        font-size: 0.6rem;
+        padding: 0.15rem 0.3rem;
+        min-height: 18px;
+      }
+      
       input[type=number], input[type=text] {
         width: 80px;
       }
@@ -784,11 +807,11 @@
           <tr>
             <th>Day</th>
             <th>Water</th>
-            <th>Bio-Grow<br>(ml)</th>
-            <th>Bio-Bloom<br>(ml)</th>
-            <th>Top-Max<br>(ml)</th>
-            <th>CalMag<br>(ml)</th>
-            <th>PhDown<br>(ml)</th>
+            <th>Bio-Grow<br>(ml)<br><button type="button" class="column-set-btn" onclick="setColumnValue(2)">Set All</button></th>
+            <th>Bio-Bloom<br>(ml)<br><button type="button" class="column-set-btn" onclick="setColumnValue(3)">Set All</button></th>
+            <th>Top-Max<br>(ml)<br><button type="button" class="column-set-btn" onclick="setColumnValue(4)">Set All</button></th>
+            <th>CalMag<br>(ml)<br><button type="button" class="column-set-btn" onclick="setColumnValue(5)">Set All</button></th>
+            <th>PhDown<br>(ml)<br><button type="button" class="column-set-btn" onclick="setColumnValue(6)">Set All</button></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1175,6 +1198,23 @@
     document.getElementById('stopAllPumps').onclick = function(){
       apiCall('/api/stop_all_pumps', {method:'POST'}).catch(()=>{});
     };
+
+    // Column value setting for weekly dosing schedule
+    function setColumnValue(columnIndex) {
+      const fertilizerNames = ['Bio-Grow', 'Bio-Bloom', 'Top-Max', 'CalMag', 'PhDown'];
+      const fertName = fertilizerNames[columnIndex - 2]; // Adjust for Day and Water columns
+      
+      const value = prompt(`Enter value for all ${fertName} doses (ml):`, '0');
+      if (value !== null && !isNaN(value)) {
+        // Set all inputs in this column
+        for (let day = 0; day < 7; day++) {
+          const input = document.getElementById(`day${day}_fert${columnIndex - 2}`);
+          if (input) {
+            input.value = parseFloat(value).toFixed(1);
+          }
+        }
+      }
+    }
 
     // Logs functionality
     let logRefreshInterval = null;
