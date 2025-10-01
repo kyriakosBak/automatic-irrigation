@@ -1320,10 +1320,16 @@
           const logCount = document.getElementById('logCount');
           const lastUpdate = document.getElementById('lastUpdate');
           
-          // Parse the logs string into an array
+          // Handle logs as array (new format) or string (old format for backwards compatibility)
           let logs = [];
-          if (data.logs && data.logs.trim()) {
-            logs = data.logs.trim().split('\n').filter(line => line.trim());
+          if (data.logs) {
+            if (Array.isArray(data.logs)) {
+              // New format: logs is already an array
+              logs = data.logs.filter(line => line && line.trim());
+            } else if (typeof data.logs === 'string' && data.logs.trim()) {
+              // Old format: logs is a string, split by newlines
+              logs = data.logs.trim().split('\n').filter(line => line.trim());
+            }
           }
           
           logEntries = logs;

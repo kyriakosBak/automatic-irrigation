@@ -1,8 +1,15 @@
 #include "logger.h"
+#include <LittleFS.h>
 
 void logger_init() {
     // Logger initialization
     Serial.println("Logger initialized");
+    
+    // Create initial log entry if LittleFS is available
+    if (LittleFS.begin()) {
+        logger_log("Logger system initialized");
+        logger_log("System startup");
+    }
 }
 
 String get_timestamp() {
@@ -39,76 +46,68 @@ void rotate_log_if_needed() {
 }
 
 void logger_log(const char* message) {
+    // Add serial debug
+    Serial.println("DEBUG: logger_log called with: " + String(message));
+    
     rotate_log_if_needed();
     
     File logFile = LittleFS.open(LOG_FILE_PATH, "a");
     if (!logFile) {
-        Serial.println("Failed to open log file for writing");
+        Serial.println("Failed to open log file for writing: " + String(LOG_FILE_PATH));
         return;
     }
     
     String timestamp = get_timestamp();
     String logEntry = "[" + timestamp + "] " + String(message) + "\n";
     
-    logFile.print(logEntry);
+    size_t written = logFile.print(logEntry);
+    logFile.flush(); // Force write to filesystem
     logFile.close();
     
-    // Also print to Serial for debugging
-    Serial.print("LOG: " + logEntry);
+    // Debug output
+    Serial.println("LOG: " + logEntry.substring(0, logEntry.length()-1)); // Remove the \n for serial
+    Serial.println("DEBUG: Wrote " + String(written) + " bytes to log file");
 }
 
 String logger_get_logs(int max_lines) {
-    String result = "";
-    int lineCount = 0;
-    
-    // Read current log file
     File logFile = LittleFS.open(LOG_FILE_PATH, "r");
-    if (logFile) {
-        // Count total lines first
-        int totalLines = 0;
-        while (logFile.available()) {
-            if (logFile.read() == '\n') totalLines++;
-        }
-        logFile.seek(0);
-        
-        // Skip lines if we have more than max_lines
-        int linesToSkip = (totalLines > max_lines) ? totalLines - max_lines : 0;
-        int currentLine = 0;
-        
-        String line = "";
-        while (logFile.available()) {
-            char c = logFile.read();
-            if (c == '\n') {
-                currentLine++;
-                if (currentLine > linesToSkip) {
-                    result += line + "\n";
-                    lineCount++;
-                }
-                line = "";
-            } else {
-                line += c;
-            }
-        }
-        // Add last line if it doesn't end with newline
-        if (line.length() > 0 && currentLine >= linesToSkip) {
-            result += line + "\n";
-        }
-        logFile.close();
+    if (!logFile) {
+        return "No log file found";
     }
     
-    // If we still need more lines and have backup file, read from it
-    if (lineCount < max_lines && LittleFS.exists(LOG_FILE_BACKUP_PATH)) {
-        File backupFile = LittleFS.open(LOG_FILE_BACKUP_PATH, "r");
-        if (backupFile) {
-            String backupContent = "";
-            while (backupFile.available()) {
-                backupContent += (char)backupFile.read();
-            }
-            backupFile.close();
-            
-            // Add backup content before current content
-            result = backupContent + result;
+    size_t fileSize = logFile.size();
+    if (fileSize == 0) {
+        logFile.close();
+        return "Log file is empty";
+    }
+    
+    // For large files, read only the last portion
+    String result = "";
+    if (max_lines > 0 && fileSize > 10000) {
+        // Read last 10KB for large files
+        size_t readSize = min(fileSize, (size_t)10000);
+        logFile.seek(fileSize - readSize);
+        
+        // Skip partial first line
+        while (logFile.available() && logFile.read() != '\n');
+        
+        // Read the rest
+        while (logFile.available()) {
+            char c = logFile.read();
+            result += c;
         }
+    } else {
+        // Read entire file for small files
+        while (logFile.available()) {
+            char c = logFile.read();
+            result += c;
+        }
+    }
+    
+    logFile.close();
+    
+    if (result.length() == 0) {
+        return "Unable to read log contents";
     }
     
     return result;

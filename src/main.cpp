@@ -5,6 +5,7 @@
 #include "modules/sensors.h"
 #include "modules/logger.h"
 #include <WiFi.h>
+#include <esp_wifi.h>  // For power saving control
 #include <ESPmDNS.h>
 #include <ArduinoOTA.h>
 #include <Preferences.h>
@@ -479,13 +480,105 @@ void setup_routes() {
         request->send(200, "application/json", response);
     });
     
-    // Logger API: Get logs
-    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
-        String logs = logger_get_logs();
-        StaticJsonDocument<4096> doc;
-        doc["logs"] = logs;
+    // Logger API: Test logs (for debugging) - MUST be before /api/logs
+    server.on("/api/logs/test", HTTP_POST, [](AsyncWebServerRequest *request){
+        logger_log("Test log entry from API");
+        logger_log("System test initiated");
+        logger_log("Multiple test entries created");
+        request->send(200, "text/plain", "Test logs created");
+    });
+    
+    // Logger API: Debug file system - MUST be before /api/logs
+    server.on("/api/logs/debug", HTTP_GET, [](AsyncWebServerRequest *request){
+        StaticJsonDocument<512> doc;
+        
+        // Check if files exist
+        doc["log_file_exists"] = LittleFS.exists(LOG_FILE_PATH);
+        doc["backup_file_exists"] = LittleFS.exists(LOG_FILE_BACKUP_PATH);
+        doc["log_file_path"] = LOG_FILE_PATH;
+        
+        // Get file sizes
+        File logFile = LittleFS.open(LOG_FILE_PATH, "r");
+        if (logFile) {
+            doc["log_file_size"] = logFile.size();
+            logFile.close();
+        } else {
+            doc["log_file_size"] = -1;
+        }
+        
+        // Test write
+        File testFile = LittleFS.open("/test.txt", "w");
+        if (testFile) {
+            testFile.println("test");
+            testFile.close();
+            doc["filesystem_writable"] = true;
+            LittleFS.remove("/test.txt");
+        } else {
+            doc["filesystem_writable"] = false;
+        }
+        
         String response;
         serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // Logger API: Download logs - MUST be before /api/logs
+    server.on("/api/logs/download", HTTP_GET, [](AsyncWebServerRequest *request){
+        String logs = logger_get_logs(1000); // Get more logs for download
+        if (logs.length() == 0) {
+            logs = "No logs available";
+        }
+        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", logs);
+        response->addHeader("Content-Disposition", "attachment; filename=irrigation_logs.txt");
+        request->send(response);
+    });
+    
+    // Logger API: Get log info - MUST be before /api/logs
+    server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
+        StaticJsonDocument<128> doc;
+        doc["current_file_size"] = logger_get_file_size();
+        String response;
+        serializeJson(doc, response);
+        request->send(200, "application/json", response);
+    });
+    
+    // Logger API: Get logs - MUST be after all specific /api/logs/* routes
+    server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
+        Serial.println("DEBUG: /api/logs endpoint called");
+        
+        String logs = logger_get_logs(100); // Explicitly pass parameter
+        Serial.println("DEBUG: Got logs with length: " + String(logs.length()));
+        
+        // Parse logs into an array for better readability
+        DynamicJsonDocument doc(logs.length() + 2048); // Extra space for JSON overhead
+        JsonArray logsArray = doc.createNestedArray("logs");
+        
+        if (logs.length() == 0 || logs == "null" || logs == "No log file found" || logs == "Log file is empty") {
+            logsArray.add("No logs available");
+        } else {
+            // Split logs by newline and add each entry to the array
+            int startIdx = 0;
+            int endIdx = 0;
+            while ((endIdx = logs.indexOf('\n', startIdx)) != -1) {
+                String line = logs.substring(startIdx, endIdx);
+                if (line.length() > 0) {
+                    logsArray.add(line);
+                }
+                startIdx = endIdx + 1;
+            }
+            // Add last line if exists
+            if (startIdx < logs.length()) {
+                String line = logs.substring(startIdx);
+                if (line.length() > 0) {
+                    logsArray.add(line);
+                }
+            }
+        }
+        
+        String response;
+        size_t size = serializeJson(doc, response);
+        Serial.println("DEBUG: JSON response with " + String(logsArray.size()) + " log entries, size: " + String(size));
+        
         request->send(200, "application/json", response);
     });
     
@@ -493,23 +586,6 @@ void setup_routes() {
     server.on("/api/logs", HTTP_DELETE, [](AsyncWebServerRequest *request){
         logger_clear();
         request->send(200, "text/plain", "Logs cleared");
-    });
-    
-    // Logger API: Download logs
-    server.on("/api/logs/download", HTTP_GET, [](AsyncWebServerRequest *request){
-        String logs = logger_get_logs();
-        AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", logs);
-        response->addHeader("Content-Disposition", "attachment; filename=irrigation_logs.txt");
-        request->send(response);
-    });
-    
-    // Logger API: Get log info
-    server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<128> doc;
-        doc["current_file_size"] = logger_get_file_size();
-        String response;
-        serializeJson(doc, response);
-        request->send(200, "application/json", response);
     });
     
     // Serve web page
@@ -603,17 +679,28 @@ void setup() {
     valve_control_init();
     scheduler_init();
     sensors_init();
-    logger_init();
 
     if (!LittleFS.begin()) {
-        logger_log("LittleFS Mount Failed");
+        Serial.println("LittleFS Mount Failed");
+    } else {
+        Serial.println("LittleFS Mount Success");
     }
+    
+    // Initialize logger after LittleFS is mounted
+    logger_init();
+    
     init_weekly_dosing(); // Initialize with defaults first
     load_settings();       // Then load from file if available
+    logger_log("Settings loaded successfully");
 
     bool wifi_ok = false;
     if (load_wifi_credentials()) {
         WiFi.begin(wifi_ssid.c_str(), wifi_password.c_str());
+        
+        // Disable power saving modes for better connectivity
+        WiFi.setSleep(false);  // Disable WiFi sleep mode
+        esp_wifi_set_ps(WIFI_PS_NONE);  // Disable power saving completely
+        
         unsigned long start = millis();
         while (WiFi.status() != WL_CONNECTED && millis() - start < 15000) {
             delay(500);
@@ -647,6 +734,16 @@ void setup() {
 
 void loop() {
     ArduinoOTA.handle();
+    
+    // Check WiFi connection periodically and reconnect if needed
+    static unsigned long lastWifiCheck = 0;
+    if (millis() - lastWifiCheck > 30000) { // Check every 30 seconds
+        if (WiFi.status() != WL_CONNECTED) {
+            logger_log("WiFi disconnected, attempting reconnection");
+            WiFi.reconnect();
+        }
+        lastWifiCheck = millis();
+    }
     
     scheduler_run();
     pump_control_run();
