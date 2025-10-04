@@ -179,8 +179,12 @@ static WateringState watering_state = IDLE;
 
 void start_watering_sequence() {
     if (watering_state == IDLE) {
-        start_fertilizer_dosing();
-        watering_state = DOSING;
+        if (start_fertilizer_dosing()) {
+            watering_state = DOSING;
+        } else {
+            logger_log("Watering sequence aborted - not enabled for today");
+            // State remains IDLE
+        }
     }
 }
 

@@ -54,11 +54,11 @@ bool is_watering_enabled_today() {
     return weekly_watering_enabled[day];
 }
 
-void start_fertilizer_dosing() {
+bool start_fertilizer_dosing() {
     // Check if watering is enabled for today
     if (!is_watering_enabled_today()) {
         logger_log("Fertilizer dosing skipped - watering disabled for today");
-        return;
+        return false;
     }
     
     logger_log("Fertilizer dosing sequence started");
@@ -77,6 +77,7 @@ void start_fertilizer_dosing() {
     } else {
         logger_log("Fertilizer pump 0 skipped - dosing amount is 0 ml");
     }
+    return true;
 }
 
 void pump_control_run_humidifier_pump(unsigned long ms) {
