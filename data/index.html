@@ -1283,16 +1283,26 @@
       // Add scroll indicator
       container.innerHTML += '<div class="scroll-indicator" id="scrollToBottom" title="Scroll to bottom">⬇</div>';
       
-      // Re-attach scroll to bottom handler
+      // Re-attach scroll indicator handler
       document.getElementById('scrollToBottom').onclick = function() {
-        container.scrollTop = container.scrollHeight;
+        const reverseOrder = document.getElementById('reverseOrder').checked;
+        if (reverseOrder) {
+          container.scrollTop = 0; // Scroll to top for reversed order
+        } else {
+          container.scrollTop = container.scrollHeight; // Scroll to bottom for normal order
+        }
         updateScrollIndicator();
       };
       
       // Apply auto-scroll if enabled and user hasn't scrolled up
       if (document.getElementById('autoScroll').checked && !userScrolledUp) {
         setTimeout(() => {
-          container.scrollTop = container.scrollHeight;
+          // If reversed (newest first), scroll to top; otherwise scroll to bottom
+          if (reverseOrder) {
+            container.scrollTop = 0;
+          } else {
+            container.scrollTop = container.scrollHeight;
+          }
         }, 50);
       }
       
@@ -1302,10 +1312,18 @@
     function updateScrollIndicator() {
       const container = document.getElementById('logContainer');
       const scrollIndicator = document.getElementById('scrollToBottom');
+      const reverseOrder = document.getElementById('reverseOrder').checked;
+      
+      // Check if at the "relevant" position (top for reversed, bottom for normal)
       const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+      const isAtTop = container.scrollTop <= 10;
+      const isAtRelevantPosition = reverseOrder ? isAtTop : isAtBottom;
       
       if (scrollIndicator) {
-        scrollIndicator.classList.toggle('visible', !isAtBottom && logEntries.length > 0);
+        scrollIndicator.classList.toggle('visible', !isAtRelevantPosition && logEntries.length > 0);
+        // Update arrow direction based on order
+        scrollIndicator.innerHTML = reverseOrder ? '⬆' : '⬇';
+        scrollIndicator.title = reverseOrder ? 'Scroll to top' : 'Scroll to bottom';
       }
     }
     
@@ -1418,7 +1436,7 @@
     const savedOptions = {
       showTimestamps: localStorage.getItem('showTimestamps') !== 'false',
       autoScroll: localStorage.getItem('autoScroll') !== 'false',
-      reverseOrder: localStorage.getItem('reverseOrder') === 'true',
+      reverseOrder: localStorage.getItem('reverseOrder') !== 'false', // Default to true (reversed/newest first)
       pauseOnScroll: localStorage.getItem('pauseOnScroll') !== 'false'
     };
     
@@ -1517,13 +1535,25 @@
       
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
+        const reverseOrder = document.getElementById('reverseOrder').checked;
         const isAtBottom = container.scrollTop >= container.scrollHeight - container.clientHeight - 10;
+        const isAtTop = container.scrollTop <= 10;
         
-        // Detect if user scrolled up
-        if (container.scrollTop < lastScrollTop && !isAtBottom) {
-          userScrolledUp = true;
-        } else if (isAtBottom) {
-          userScrolledUp = false;
+        // Detect if user scrolled away from the "live" position
+        if (reverseOrder) {
+          // For reversed order, user scrolled away if they scroll down from top
+          if (container.scrollTop > lastScrollTop && !isAtTop) {
+            userScrolledUp = true;
+          } else if (isAtTop) {
+            userScrolledUp = false;
+          }
+        } else {
+          // For normal order, user scrolled away if they scroll up from bottom
+          if (container.scrollTop < lastScrollTop && !isAtBottom) {
+            userScrolledUp = true;
+          } else if (isAtBottom) {
+            userScrolledUp = false;
+          }
         }
         
         lastScrollTop = container.scrollTop;
