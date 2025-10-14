@@ -700,7 +700,9 @@ void setup() {
     bool wifi_ok = false;
     if (load_wifi_credentials()) {
         WiFi.begin(wifi_ssid.c_str(), wifi_password.c_str());
-        
+        String log_msg = "Trying to connect to SSID: " + wifi_ssid + " with password: " + wifi_password;
+        logger_log(log_msg.c_str());
+
         // Disable power saving modes for better connectivity
         WiFi.setSleep(false);  // Disable WiFi sleep mode
         esp_wifi_set_ps(WIFI_PS_NONE);  // Disable power saving completely

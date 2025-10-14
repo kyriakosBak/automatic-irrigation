@@ -46,9 +46,6 @@ void rotate_log_if_needed() {
 }
 
 void logger_log(const char* message) {
-    // Add serial debug
-    Serial.println("DEBUG: logger_log called with: " + String(message));
-    
     rotate_log_if_needed();
     
     File logFile = LittleFS.open(LOG_FILE_PATH, "a");
