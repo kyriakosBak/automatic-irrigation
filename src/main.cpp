@@ -540,8 +540,11 @@ void setup_routes() {
     
     // Logger API: Get log info - MUST be before /api/logs
     server.on("/api/logs/info", HTTP_GET, [](AsyncWebServerRequest *request){
-        StaticJsonDocument<128> doc;
+        StaticJsonDocument<256> doc;
         doc["current_file_size"] = logger_get_file_size();
+        doc["queue_count"] = logger_get_queue_count();
+        doc["logs_written"] = logger_get_written_count();
+        doc["logs_dropped"] = logger_get_dropped_count();
         String response;
         serializeJson(doc, response);
         request->send(200, "application/json", response);
@@ -549,10 +552,7 @@ void setup_routes() {
     
     // Logger API: Get logs - MUST be after all specific /api/logs/* routes
     server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
-        logger_log("DEBUG: /api/logs endpoint called");
-        
         String logs = logger_get_logs(100); // Explicitly pass parameter
-        logger_log("DEBUG: Got logs with length: " + String(logs.length()));
         
         // Parse logs into an array for better readability
         DynamicJsonDocument doc(logs.length() + 2048); // Extra space for JSON overhead
@@ -582,7 +582,6 @@ void setup_routes() {
         
         String response;
         size_t size = serializeJson(doc, response);
-        logger_log("DEBUG: JSON response with " + String(logsArray.size()) + " log entries, size: " + String(size));
         
         request->send(200, "application/json", response);
     });
@@ -742,6 +741,9 @@ void setup() {
 void loop() {
     ArduinoOTA.handle();
     
+    // Process log queue regularly to write queued logs to file
+    logger_process_queue();
+    
     // Check WiFi connection periodically and reconnect if needed
     static unsigned long lastWifiCheck = 0;
     if (millis() - lastWifiCheck > 30000) { // Check every 30 seconds
@@ -794,7 +796,6 @@ void loop() {
             logger_log("State: FILLED -> WATERING");
             pump_control_run_watering_pump(watering_duration_ms);
             watering_state = WATERING;
-            String log_msg = "Watering pump started - running for " + String(watering_duration_ms) + "ms";
             logger_log(log_msg.c_str());
             break;
         }
