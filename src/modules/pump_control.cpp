@@ -64,13 +64,15 @@ bool start_fertilizer_dosing() {
     logger_log("Fertilizer dosing sequence started");
     dosing_stage = 0;
     float current_ml = get_current_dosing_ml(0);
-    dosing_end_time = millis() + ml_to_runtime(0, current_ml);
     
     // Only start the motor if there's actually fertilizer to dose
     if (current_ml > 0) {
         set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
         run_motor_forward(1);
         pump_running[0] = true;
+        
+        // Set end time AFTER starting the motor to account for I2C delays
+        dosing_end_time = millis() + ml_to_runtime(0, current_ml);
         
         String log_msg = "Fertilizer pump 0 started - dosing " + String(current_ml) + " ml";
         logger_log(log_msg.c_str());
@@ -152,7 +154,6 @@ void pump_control_run() {
             dosing_stage++;
             if (dosing_stage < NUM_FERTILIZERS) {
                 float current_ml = get_current_dosing_ml(dosing_stage);
-                dosing_end_time = millis() + ml_to_runtime(dosing_stage, current_ml);
                 
                 // Only start motor if there's fertilizer to dose
                 if (current_ml > 0) {
@@ -160,6 +161,9 @@ void pump_control_run() {
                     set_motor_speed(motor_num, fertilizer_motor_speed);
                     run_motor_forward(motor_num);
                     pump_running[dosing_stage] = true;
+                    
+                    // Set end time AFTER starting the motor to account for I2C delays
+                    dosing_end_time = millis() + ml_to_runtime(dosing_stage, current_ml);
                     
                     String log_msg = "Fertilizer pump " + String(dosing_stage) + " started - dosing " + String(current_ml) + " ml";
                     logger_log(log_msg.c_str());

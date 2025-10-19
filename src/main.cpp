@@ -181,6 +181,7 @@ void start_watering_sequence() {
     if (watering_state == IDLE) {
         if (start_fertilizer_dosing()) {
             watering_state = DOSING;
+            logger_log("State: IDLE -> DOSING");
         } else {
             logger_log("Watering sequence aborted - not enabled for today");
             // State remains IDLE
@@ -548,10 +549,10 @@ void setup_routes() {
     
     // Logger API: Get logs - MUST be after all specific /api/logs/* routes
     server.on("/api/logs", HTTP_GET, [](AsyncWebServerRequest *request){
-        Serial.println("DEBUG: /api/logs endpoint called");
+        logger_log("DEBUG: /api/logs endpoint called");
         
         String logs = logger_get_logs(100); // Explicitly pass parameter
-        Serial.println("DEBUG: Got logs with length: " + String(logs.length()));
+        logger_log("DEBUG: Got logs with length: " + String(logs.length()));
         
         // Parse logs into an array for better readability
         DynamicJsonDocument doc(logs.length() + 2048); // Extra space for JSON overhead
@@ -581,7 +582,7 @@ void setup_routes() {
         
         String response;
         size_t size = serializeJson(doc, response);
-        Serial.println("DEBUG: JSON response with " + String(logsArray.size()) + " log entries, size: " + String(size));
+        logger_log("DEBUG: JSON response with " + String(logsArray.size()) + " log entries, size: " + String(size));
         
         request->send(200, "application/json", response);
     });
@@ -685,9 +686,9 @@ void setup() {
     sensors_init();
 
     if (!LittleFS.begin()) {
-        Serial.println("LittleFS Mount Failed");
+        logger_log("LittleFS Mount Failed");
     } else {
-        Serial.println("LittleFS Mount Success");
+        logger_log("LittleFS Mount Success");
     }
     
     // Initialize logger after LittleFS is mounted
@@ -761,6 +762,7 @@ void loop() {
         case DOSING:
             if (!pump_control_is_dosing()) {
                 // Dosing is complete, move to filling
+                logger_log("State: DOSING -> FILLING");
                 valve_control_fill_main_tank();
                 filling = true;
                 fill_start_time = millis();
@@ -772,30 +774,36 @@ void loop() {
                 if (sensors_get_liquid_level()) {
                     valve_control_stop_main_tank();
                     filling = false;
+                    logger_log("Tank filled - sensor detected full level");
+                    logger_log("State: FILLING -> FILLED");
                     watering_state = FILLED;
                 } else if (millis() - fill_start_time > MAIN_TANK_FILL_TIMEOUT_MS) {
                     valve_control_stop_main_tank();
                     filling = false;
-                    watering_state = FILLED;
                     logger_log("[SAFETY] Main tank fill timeout reached, valve closed");
+                    logger_log("State: FILLING -> FILLED (timeout)");
+                    watering_state = FILLED;
                 }
             } else {
+                logger_log("State: FILLING -> FILLED (no fill needed)");
                 watering_state = FILLED;
             }
             break;
         case FILLED: {
             // Start watering pump for configured time after tank is filled
+            logger_log("State: FILLED -> WATERING");
             pump_control_run_watering_pump(watering_duration_ms);
             watering_state = WATERING;
-            String log_msg = "[DEBUG] Tank filled - starting watering pump for " + String(watering_duration_ms) + "ms";
+            String log_msg = "Watering pump started - running for " + String(watering_duration_ms) + "ms";
             logger_log(log_msg.c_str());
             break;
         }
         case WATERING:
             // Wait for watering to complete (pump will stop automatically)
             if (!watering_pump_active) {
+                logger_log("Watering pump stopped - sequence finished");
+                logger_log("State: WATERING -> IDLE");
                 watering_state = IDLE;
-                logger_log("[DEBUG] Watering complete - sequence finished");
             }
             break;
     }
@@ -803,6 +811,7 @@ void loop() {
     if (filling && sensors_get_liquid_level()) {
         valve_control_stop_main_tank();
         filling = false;
+        logger_log("Tank filled - sensor detected full level (safety check)");
     }
     delay(100);
 }
