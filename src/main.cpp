@@ -182,8 +182,10 @@ void start_watering_sequence() {
         if (start_fertilizer_dosing()) {
             watering_state = DOSING;
             logger_log("State: IDLE -> DOSING");
+            logger_flush(); // Ensure sequence start is written
         } else {
             logger_log("Watering sequence aborted - not enabled for today");
+            logger_flush(); // Ensure abort message is written
             // State remains IDLE
         }
     }
@@ -744,6 +746,13 @@ void loop() {
     // Process log queue regularly to write queued logs to file
     logger_process_queue();
     
+    // Periodic forced flush to ensure logs are written even if no state changes
+    static unsigned long last_flush = 0;
+    if (millis() - last_flush > 5000) { // Flush every 5 seconds
+        logger_flush();
+        last_flush = millis();
+    }
+    
     // Check WiFi connection periodically and reconnect if needed
     static unsigned long lastWifiCheck = 0;
     if (millis() - lastWifiCheck > 30000) { // Check every 30 seconds
@@ -765,6 +774,7 @@ void loop() {
             if (!pump_control_is_dosing()) {
                 // Dosing is complete, move to filling
                 logger_log("State: DOSING -> FILLING");
+                logger_flush(); // Ensure state transition is written
                 valve_control_fill_main_tank();
                 filling = true;
                 fill_start_time = millis();
@@ -778,12 +788,14 @@ void loop() {
                     filling = false;
                     logger_log("Tank filled - sensor detected full level");
                     logger_log("State: FILLING -> FILLED");
+                    logger_flush(); // Ensure state transition is written
                     watering_state = FILLED;
                 } else if (millis() - fill_start_time > MAIN_TANK_FILL_TIMEOUT_MS) {
                     valve_control_stop_main_tank();
                     filling = false;
                     logger_log("[SAFETY] Main tank fill timeout reached, valve closed");
                     logger_log("State: FILLING -> FILLED (timeout)");
+                    logger_flush(); // Ensure safety event is written
                     watering_state = FILLED;
                 }
             } else {
@@ -794,9 +806,9 @@ void loop() {
         case FILLED: {
             // Start watering pump for configured time after tank is filled
             logger_log("State: FILLED -> WATERING");
+            logger_flush(); // Ensure state transition is written
             pump_control_run_watering_pump(watering_duration_ms);
             watering_state = WATERING;
-            logger_log(log_msg.c_str());
             break;
         }
         case WATERING:
@@ -804,6 +816,7 @@ void loop() {
             if (!watering_pump_active) {
                 logger_log("Watering pump stopped - sequence finished");
                 logger_log("State: WATERING -> IDLE");
+                logger_flush(); // Ensure completion is written
                 watering_state = IDLE;
             }
             break;
@@ -814,5 +827,7 @@ void loop() {
         filling = false;
         logger_log("Tank filled - sensor detected full level (safety check)");
     }
-    delay(100);
+    
+    // Reduced delay for more responsive log processing
+    delay(50);
 }

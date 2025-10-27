@@ -21,6 +21,9 @@ void logger_log(const char* message);
 // Process queued logs - call this regularly from main loop
 void logger_process_queue();
 
+// Force flush all queued logs immediately - call before critical operations
+void logger_flush();
+
 // Log management
 String logger_get_logs(int max_lines = 100);
 void logger_clear();

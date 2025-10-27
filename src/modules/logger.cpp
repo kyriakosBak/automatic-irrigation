@@ -147,13 +147,21 @@ void logger_log(const char* message) {
 }
 
 void logger_process_queue() {
-    // Process up to 10 log entries per call to avoid blocking too long
+    // Process up to 20 log entries per call for better throughput
     int processed = 0;
-    const int max_per_cycle = 10;
+    const int max_per_cycle = 20;
+    
+    // Open file once for batch writing (more efficient)
+    File logFile;
+    bool file_opened = false;
     
     while (processed < max_per_cycle && queue_count > 0) {
         if (!acquire_mutex(100)) {
             // Couldn't acquire mutex, try again next cycle
+            if (file_opened) {
+                logFile.flush();
+                logFile.close();
+            }
             return;
         }
         
@@ -185,29 +193,32 @@ void logger_process_queue() {
         
         release_mutex();
         
-        // Now write to file (without holding mutex)
-        // Check if rotation is needed first
-        File logFile = LittleFS.open(LOG_FILE_PATH, "r");
-        if (logFile) {
-            size_t fileSize = logFile.size();
-            logFile.close();
-            
-            if (fileSize >= MAX_LOG_FILE_SIZE) {
-                // Rotate log file
-                if (LittleFS.exists(LOG_FILE_BACKUP_PATH)) {
-                    LittleFS.remove(LOG_FILE_BACKUP_PATH);
+        // Open file if not already open
+        if (!file_opened) {
+            // Check if rotation is needed first (only on first entry)
+            File checkFile = LittleFS.open(LOG_FILE_PATH, "r");
+            if (checkFile) {
+                size_t fileSize = checkFile.size();
+                checkFile.close();
+                
+                if (fileSize >= MAX_LOG_FILE_SIZE) {
+                    // Rotate log file
+                    if (LittleFS.exists(LOG_FILE_BACKUP_PATH)) {
+                        LittleFS.remove(LOG_FILE_BACKUP_PATH);
+                    }
+                    LittleFS.rename(LOG_FILE_PATH, LOG_FILE_BACKUP_PATH);
+                    Serial.println("Log file rotated");
                 }
-                LittleFS.rename(LOG_FILE_PATH, LOG_FILE_BACKUP_PATH);
-                Serial.println("Log file rotated");
             }
-        }
-        
-        // Open file and append
-        logFile = LittleFS.open(LOG_FILE_PATH, "a");
-        if (!logFile) {
-            Serial.println("Failed to open log file for writing: " + String(LOG_FILE_PATH));
-            processed++;
-            continue;
+            
+            // Open file for appending
+            logFile = LittleFS.open(LOG_FILE_PATH, "a");
+            if (!logFile) {
+                Serial.println("Failed to open log file for writing: " + String(LOG_FILE_PATH));
+                processed++;
+                continue;
+            }
+            file_opened = true;
         }
         
         // Get timestamp
@@ -216,8 +227,6 @@ void logger_process_queue() {
         
         // Write to file
         size_t written = logFile.print(logEntry);
-        logFile.flush(); // Force write to filesystem
-        logFile.close();
         
         if (written > 0) {
             logs_written++;
@@ -226,13 +235,38 @@ void logger_process_queue() {
         processed++;
     }
     
+    // Close and flush file if it was opened
+    if (file_opened) {
+        logFile.flush(); // Force write to filesystem
+        logFile.close();
+    }
+    
     // Periodically report statistics
     static unsigned long last_stats_report = 0;
     if (millis() - last_stats_report > 60000) { // Every 60 seconds
-        if (logs_dropped > 0) {
+        if (logs_dropped > 0 || queue_count > 50) {
             Serial.println("LOG STATS: Written=" + String(logs_written) + ", Dropped=" + String(logs_dropped) + ", Queued=" + String(queue_count));
         }
         last_stats_report = millis();
+    }
+}
+
+void logger_flush() {
+    // Force flush all queued logs
+    Serial.println("LOG: Flushing all queued logs...");
+    int max_iterations = 20; // Prevent infinite loop
+    int iterations = 0;
+    
+    while (queue_count > 0 && iterations < max_iterations) {
+        logger_process_queue();
+        iterations++;
+        yield(); // Allow ESP32 to handle WiFi, etc.
+    }
+    
+    if (queue_count > 0) {
+        Serial.println("LOG: Warning - " + String(queue_count) + " logs still queued after flush");
+    } else {
+        Serial.println("LOG: All logs flushed successfully");
     }
 }
 

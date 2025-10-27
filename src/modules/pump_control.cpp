@@ -63,22 +63,38 @@ bool start_fertilizer_dosing() {
     
     logger_log("Fertilizer dosing sequence started");
     dosing_stage = 0;
-    float current_ml = get_current_dosing_ml(0);
     
-    // Only start the motor if there's actually fertilizer to dose
-    if (current_ml > 0) {
-        set_motor_speed(1, fertilizer_motor_speed);  // Motor 1 for pump 0
-        run_motor_forward(1);
-        pump_running[0] = true;
+    // Find first pump with dosing amount > 0
+    while (dosing_stage < NUM_FERTILIZERS) {
+        float current_ml = get_current_dosing_ml(dosing_stage);
         
-        // Set end time AFTER starting the motor to account for I2C delays
-        dosing_end_time = millis() + ml_to_runtime(0, current_ml);
-        
-        String log_msg = "Fertilizer pump 0 started - dosing " + String(current_ml) + " ml";
-        logger_log(log_msg.c_str());
-    } else {
-        logger_log("Fertilizer pump 0 skipped - dosing amount is 0 ml");
+        // Only start the motor if there's actually fertilizer to dose
+        if (current_ml > 0) {
+            int motor_num = dosing_stage + 1;
+            set_motor_speed(motor_num, fertilizer_motor_speed);
+            run_motor_forward(motor_num);
+            pump_running[dosing_stage] = true;
+            
+            // Set end time AFTER starting the motor to account for I2C delays
+            dosing_end_time = millis() + ml_to_runtime(dosing_stage, current_ml);
+            
+            String log_msg = "Fertilizer pump " + String(dosing_stage) + " started - dosing " + String(current_ml) + " ml";
+            logger_log(log_msg.c_str());
+            return true;
+        } else {
+            String log_msg = "Fertilizer pump " + String(dosing_stage) + " skipped - dosing amount is 0 ml";
+            logger_log(log_msg.c_str());
+            dosing_stage++;
+        }
     }
+    
+    // All pumps were skipped (all had 0 ml)
+    if (dosing_stage >= NUM_FERTILIZERS) {
+        logger_log("All fertilizer pumps skipped - no dosing needed");
+        dosing_stage = -1; // Mark as complete
+        return false; // Nothing to dose
+    }
+    
     return true;
 }
 
@@ -152,7 +168,9 @@ void pump_control_run() {
             
             pump_running[dosing_stage] = false;
             dosing_stage++;
-            if (dosing_stage < NUM_FERTILIZERS) {
+            
+            // Continue processing to handle skipped pumps or completion
+            while (dosing_stage < NUM_FERTILIZERS) {
                 float current_ml = get_current_dosing_ml(dosing_stage);
                 
                 // Only start motor if there's fertilizer to dose
@@ -167,12 +185,16 @@ void pump_control_run() {
                     
                     String log_msg = "Fertilizer pump " + String(dosing_stage) + " started - dosing " + String(current_ml) + " ml";
                     logger_log(log_msg.c_str());
+                    break; // Exit while loop, wait for this pump to complete
                 } else {
-                    
                     String log_msg = "Fertilizer pump " + String(dosing_stage) + " skipped - dosing amount is 0 ml";
                     logger_log(log_msg.c_str());
+                    dosing_stage++; // Move to next pump
                 }
-            } else {
+            }
+            
+            // If we've gone through all fertilizers, mark as complete
+            if (dosing_stage >= NUM_FERTILIZERS) {
                 dosing_stage = -1; // Done
                 logger_log("All fertilizer dosing complete");
             }
